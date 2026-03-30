@@ -19,6 +19,8 @@
 		A1000010000000000000000A /* GameOverOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000010000000000000000A; };
 		A1000011000000000000000B /* HapticManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000011000000000000000B; };
 		A1000012000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000012000000000000000C; };
+		A1000013000000000000000D /* ChromaHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000013000000000000000D; };
+		A1000014000000000000000E /* TunnelBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000014000000000000000E; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -34,6 +36,8 @@
 		A2000010000000000000000A /* GameOverOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameOverOverlay.swift; sourceTree = "<group>"; };
 		A2000011000000000000000B /* HapticManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticManager.swift; sourceTree = "<group>"; };
 		A2000012000000000000000C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A2000013000000000000000D /* ChromaHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChromaHeader.swift; sourceTree = "<group>"; };
+		A2000014000000000000000E /* TunnelBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelBackground.swift; sourceTree = "<group>"; };
 		A30000000000000000000001 /* Prism.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Prism.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -95,6 +99,8 @@
 				A20000080000000000000008 /* NextTilePreview.swift */,
 				A20000090000000000000009 /* ScoreView.swift */,
 				A2000010000000000000000A /* GameOverOverlay.swift */,
+				A2000013000000000000000D /* ChromaHeader.swift */,
+				A2000014000000000000000E /* TunnelBackground.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -187,6 +193,8 @@
 				A10000090000000000000009 /* ScoreView.swift in Sources */,
 				A1000010000000000000000A /* GameOverOverlay.swift in Sources */,
 				A1000011000000000000000B /* HapticManager.swift in Sources */,
+				A1000013000000000000000D /* ChromaHeader.swift in Sources */,
+				A1000014000000000000000E /* TunnelBackground.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -320,7 +328,7 @@
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Prism;
+				INFOPLIST_KEY_CFBundleDisplayName = Blent;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -351,7 +359,7 @@
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Prism;
+				INFOPLIST_KEY_CFBundleDisplayName = Blent;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

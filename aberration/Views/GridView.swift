@@ -85,8 +85,15 @@ struct GridView: View {
             return pos == a || pos == b
         }()
         let isHinted = game.hintPositions.contains(pos)
+        let isPoison = game.poisonPositions.contains(pos)
 
         if let tileColor = game.tile(at: pos) {
+            // Compute blend preview: small dot showing what this tile + selected tile would make
+            let blendPreview: PrismColor? = {
+                guard !isSelected, game.selectedPosition != nil else { return nil }
+                return game.previewBlend(with: tileColor)
+            }()
+
             TileView(
                 color: tileColor,
                 isSelected: isSelected,
@@ -94,7 +101,9 @@ struct GridView: View {
                 isBlendResult: isBlendResult,
                 isBlending: isBlending,
                 isHinted: isHinted,
-                showLabel: game.showColorLabels
+                isPoison: isPoison,
+                showLabel: game.showColorLabels,
+                blendPreview: blendPreview
             )
             .id(tileColor.wheelIndex)
         } else {

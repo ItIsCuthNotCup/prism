@@ -7,7 +7,9 @@ struct TileView: View {
     var isBlendResult: Bool = false
     var isBlending: Bool = false
     var isHinted: Bool = false
+    var isPoison: Bool = false
     var showLabel: Bool = false
+    var blendPreview: PrismColor? = nil
 
     @State private var appeared = false
     @State private var hintGlow = false
@@ -71,6 +73,28 @@ struct TileView: View {
                     }
                 }
             )
+            // Poison indicator — small skull badge
+            .overlay(alignment: .topLeading) {
+                if isPoison {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.9))
+                        .shadow(color: .black.opacity(0.4), radius: 1, x: 0, y: 1)
+                        .offset(x: 3, y: 3)
+                }
+            }
+            // Blend preview dot — shows what this tile + selected tile would make
+            .overlay(alignment: .bottomTrailing) {
+                if let preview = blendPreview {
+                    Circle()
+                        .fill(preview.color)
+                        .frame(width: 14, height: 14)
+                        .overlay(Circle().strokeBorder(.white.opacity(0.8), lineWidth: 1))
+                        .shadow(color: preview.color.opacity(0.4), radius: 3)
+                        .offset(x: 3, y: 3)
+                        .transition(.scale.combined(with: .opacity))
+                }
+            }
             // Glass border
             .overlay(
                 RoundedRectangle(cornerRadius: 10)

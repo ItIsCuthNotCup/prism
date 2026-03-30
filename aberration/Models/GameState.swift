@@ -9,56 +9,121 @@ class GameState {
     var round: Int = 0
     var score: Int = 0
     var highScore: Int {
-        get { UserDefaults.standard.integer(forKey: "prism_high_score") }
-        set { UserDefaults.standard.set(newValue, forKey: "prism_high_score") }
+        get { UserDefaults.standard.integer(forKey: "blent_high_score") }
+        set { UserDefaults.standard.set(newValue, forKey: "blent_high_score") }
     }
     var isGameOver: Bool = false
     var selectedPosition: GridPosition? = nil
     var isProcessing: Bool = false
     var showRoundComplete: Bool = false
+    var roundCompleteCanDismiss: Bool = false
     var matchedPosition: GridPosition? = nil
     var lastBlendPosition: GridPosition? = nil
-    /// Positions currently animating a blend (both tiles shrink before result appears)
     var blendingPositions: (GridPosition, GridPosition)? = nil
-    /// Tracks whether the just-completed round is a milestone (every 4th)
     var showMilestone: Bool = false
+
+    // MARK: - Tunnel Background
+    /// Increments each time a round completes — drives the tunnel intensity
+    var tunnelDepth: Int = 0
+
+    // MARK: - Near-Miss Stats (for game over screen)
+
+    var bestRound: Int {
+        get { UserDefaults.standard.integer(forKey: "blent_best_round") }
+        set { UserDefaults.standard.set(newValue, forKey: "blent_best_round") }
+    }
+    var totalBlendsThisGame: Int = 0
+    var totalRoundsCompletedThisGame: Int = 0
+    /// How many tiles on the board could have been blended toward the target at game over
+    var nearMissBlendCount: Int = 0
+    /// The closest color on the board to the target at game over (wheel distance)
+    var closestColorDistance: Int = 0
+    var closestColorOnBoard: PrismColor? = nil
 
     // MARK: - Undo
 
-    /// Snapshot of grid + score before the last blend (one undo per round)
     private var undoGrid: [[PrismColor?]]? = nil
     private var undoScore: Int? = nil
     var canUndo: Bool { undoGrid != nil }
-    /// Whether the free undo has been used this round
     private var undoUsedThisRound: Bool = false
 
     // MARK: - Settings
 
     var showColorLabels: Bool {
-        get { UserDefaults.standard.bool(forKey: "prism_show_labels") }
-        set { UserDefaults.standard.set(newValue, forKey: "prism_show_labels") }
+        get {
+            // Default to ON for new players
+            if UserDefaults.standard.object(forKey: "blent_show_labels") == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: "blent_show_labels")
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "blent_show_labels") }
     }
 
     // MARK: - First-Round Hint
 
-    /// Positions of the two tiles to highlight with a breathing glow on round 1
     var hintPositions: Set<GridPosition> = []
-    /// Whether to show "Merge the colors" prompt
     var showMergeHint: Bool = false
+
+    // MARK: - Multi-Step Targets
+
+    /// Remaining targets after the current one (for multi-step rounds)
+    var pendingTargets: [PrismColor] = []
+    /// Total targets this round (for progress display)
+    var totalTargetsThisRound: Int = 1
+    /// Which target we're on (1-based for display)
+    var currentTargetNumber: Int { totalTargetsThisRound - pendingTargets.count }
+    /// Brief overlay when hitting a sub-target
+    var showSubTargetComplete: Bool = false
+
+    var targetCountForRound: Int {
+        if round < 15 { return 1 }
+        if round < 25 { return 2 }
+        if round < 40 { return 3 }
+        return 4
+    }
+
+    // MARK: - Poison Tiles
+
+    var poisonPositions: Set<GridPosition> = []
+    var showPoisonIntro: Bool = false
+    var hasSeenPoisonIntro: Bool {
+        get { UserDefaults.standard.bool(forKey: "blent_seen_poison") }
+        set { UserDefaults.standard.set(newValue, forKey: "blent_seen_poison") }
+    }
+
+    var poisonTileCount: Int {
+        if round <= 10 { return 0 }
+        return 1 + (round - 11) / 5
+    }
+
+    // MARK: - Combo / Par System
+
+    var blendsThisTarget: Int = 0
+    var parForCurrentTarget: Int = 0
+    var comboMessage: String? = nil
+    var comboBonusTotal: Int = 0
+    /// Score breakdown for the round complete overlay
+    var lastRoundBlendPoints: Int = 0
+    var lastRoundMatchBonus: Int = 0
+    var lastRoundComboBonus: Int = 0
 
     // MARK: - Difficulty Scaling
 
     var maxDepth: Int {
-        if round <= 3 { return 1 }       // secondaries only
-        if round <= 9 { return 2 }       // + depth-2 colors
-        return 3                          // full 24-color wheel
+        if round <= 3 { return 1 }
+        if round <= 9 { return 2 }
+        return 3
     }
 
     var distractorCount: Int {
         if round <= 2 { return 0 }
         if round <= 5 { return 1 }
         if round <= 10 { return 2 }
-        return 3
+        if round <= 15 { return 3 }
+        if round <= 20 { return 4 }
+        if round <= 30 { return 5 }
+        return min(6 + (round - 30) / 10, 8)
     }
 
     // MARK: - Init
@@ -67,6 +132,21 @@ class GameState {
         grid = Array(repeating: Array(repeating: nil, count: GridPosition.gridSize),
                      count: GridPosition.gridSize)
         startNewRound()
+    }
+
+    // MARK: - Blend Preview
+
+    /// When a tile is selected, shows what blending it with any other tile would produce.
+    /// Nil when no tile is selected.
+    var selectedColor: PrismColor? {
+        guard let pos = selectedPosition else { return nil }
+        return tile(at: pos)
+    }
+
+    /// Preview the result of blending the selected tile with the given color.
+    func previewBlend(with other: PrismColor) -> PrismColor? {
+        guard let sel = selectedColor else { return nil }
+        return PrismColor.mix(sel, other)
     }
 
     // MARK: - Queries
@@ -102,7 +182,6 @@ class GameState {
         }
     }
 
-    /// True if at least two tiles exist on the board (any two can blend).
     func hasAnyBlend() -> Bool {
         var count = 0
         for r in 0..<gridSize {
@@ -119,13 +198,12 @@ class GameState {
     // MARK: - Tile Selection & Blending
 
     func selectTile(at pos: GridPosition) {
-        guard !isProcessing, !isGameOver, !showRoundComplete else { return }
+        guard !isProcessing, !isGameOver, !showRoundComplete, !showSubTargetComplete else { return }
         guard tile(at: pos) != nil else {
             selectedPosition = nil
             return
         }
 
-        // Clear first-round hint as soon as player interacts
         if showMergeHint {
             hintPositions = []
             showMergeHint = false
@@ -133,13 +211,10 @@ class GameState {
 
         if let sel = selectedPosition {
             if sel == pos {
-                // Deselect
                 selectedPosition = nil
             } else if tile(at: sel) != nil {
-                // Blend any two tiles (no adjacency required)
                 performBlend(sel, pos)
             } else {
-                // Select different tile
                 HapticManager.tilePlaced()
                 SoundManager.shared.playSelect()
                 selectedPosition = pos
@@ -159,73 +234,138 @@ class GameState {
         selectedPosition = nil
         let result = PrismColor.mix(colorA, colorB)
 
-        // Save undo snapshot (only if undo hasn't been used this round)
         if !undoUsedThisRound {
             undoGrid = grid.map { $0 }
             undoScore = score
         }
 
-        // Phase 1: both tiles shrink (visual only — tiles still on grid during animation)
         blendingPositions = (posA, posB)
 
         Task {
-            // Short pause for the shrink animation to play
-            try? await Task.sleep(for: .milliseconds(150))
+            try? await Task.sleep(for: .milliseconds(80))
 
-            // Phase 2: swap in result + play sound
             HapticManager.blend()
             SoundManager.shared.playBlendTone(for: result)
 
             grid[posA.row][posA.col] = result
             grid[posB.row][posB.col] = nil
+            poisonPositions.remove(posA)
+            poisonPositions.remove(posB)
             blendingPositions = nil
             lastBlendPosition = posA
             score += 10
+            blendsThisTarget += 1
+            totalBlendsThisGame += 1
 
-            // Check if result matches target
+            // Check if result matches current target
             if let target = targetColor, result == target {
                 matchedPosition = posA
                 let roundBonus = round * 50
                 score += roundBonus
+
+                // Track breakdown
+                lastRoundBlendPoints = blendsThisTarget * 10
+                lastRoundMatchBonus = roundBonus
+
+                // Combo bonus
+                let comboText = evaluateCombo()
+                lastRoundComboBonus = comboText != nil ? (blendsThisTarget < parForCurrentTarget ? 200 : 100) : 0
+
                 updateHighScore()
-
-                try? await Task.sleep(for: .milliseconds(500))
+                try? await Task.sleep(for: .milliseconds(250))
                 HapticManager.lineClear()
-
-                let completedRound = round
-                let isMilestone = completedRound % 4 == 0 && completedRound > 0
-                if isMilestone {
-                    SoundManager.shared.playMilestone()
-                } else {
-                    SoundManager.shared.playRoundComplete()
-                }
 
                 // Remove matched tile
                 grid[posA.row][posA.col] = nil
                 matchedPosition = nil
                 lastBlendPosition = nil
 
-                if isMilestone {
-                    showMilestone = true
-                    showRoundComplete = true
-                    try? await Task.sleep(for: .milliseconds(2000))
-                    showMilestone = false
-                } else {
-                    showRoundComplete = true
-                    try? await Task.sleep(for: .milliseconds(1200))
-                }
+                if !pendingTargets.isEmpty {
+                    // Multi-step: show brief sub-target overlay, then advance
+                    if let ct = comboText {
+                        comboMessage = ct
+                    }
+                    SoundManager.shared.playRoundComplete()
 
-                showRoundComplete = false
-                startNewRound()
-                isProcessing = false
+                    showSubTargetComplete = true
+                    try? await Task.sleep(for: .milliseconds(600))
+                    showSubTargetComplete = false
+                    comboMessage = nil
+
+                    advanceToNextTarget()
+                    isProcessing = false
+                } else {
+                    // Final (or only) target — full round complete
+                    let completedRound = round
+                    let isMilestone = completedRound % 4 == 0 && completedRound > 0
+                    if isMilestone {
+                        SoundManager.shared.playMilestone()
+                    } else {
+                        SoundManager.shared.playRoundComplete()
+                    }
+
+                    if let ct = comboText {
+                        comboMessage = ct
+                    }
+
+                    showMilestone = isMilestone
+                    showRoundComplete = true
+                    tunnelDepth += 1
+                    roundCompleteCanDismiss = false
+
+                    // Allow dismiss after a brief minimum display
+                    try? await Task.sleep(for: .milliseconds(200))
+                    roundCompleteCanDismiss = true
+
+                    // Auto-dismiss after full duration if not tapped
+                    try? await Task.sleep(for: .milliseconds(isMilestone ? 1200 : 600))
+
+                    if showRoundComplete {
+                        showRoundComplete = false
+                        showMilestone = false
+                        comboMessage = nil
+                        startNewRound()
+                    }
+                    isProcessing = false
+                }
             } else {
-                updateHighScore()
-                try? await Task.sleep(for: .milliseconds(200))
+                try? await Task.sleep(for: .milliseconds(120))
                 lastBlendPosition = nil
                 checkGameOver()
                 isProcessing = false
             }
         }
+    }
+
+    // MARK: - Overlay Dismissal
+
+    func dismissRoundComplete() {
+        guard showRoundComplete, roundCompleteCanDismiss else { return }
+        showRoundComplete = false
+        showMilestone = false
+        comboMessage = nil
+        isProcessing = false
+        startNewRound()
+    }
+
+    // MARK: - Combo Evaluation
+
+    /// Returns a combo message string if the player earned one, and adds bonus points.
+    private func evaluateCombo() -> String? {
+        if parForCurrentTarget <= 0 { return nil }
+
+        if blendsThisTarget < parForCurrentTarget {
+            let bonus = 200
+            score += bonus
+            comboBonusTotal += bonus
+            return "UNDER PAR! +\(bonus)"
+        } else if blendsThisTarget == parForCurrentTarget {
+            let bonus = 100
+            score += bonus
+            comboBonusTotal += bonus
+            return "PAR! +\(bonus)"
+        }
+        return nil
     }
 
     // MARK: - Undo Action
@@ -239,48 +379,53 @@ class GameState {
         undoUsedThisRound = true
         lastBlendPosition = nil
         selectedPosition = nil
+        if blendsThisTarget > 0 { blendsThisTarget -= 1 }
     }
 
     // MARK: - Round Management
 
     func startNewRound() {
+        // Track completed rounds (skip on first call from init)
+        if round > 0 {
+            totalRoundsCompletedThisGame += 1
+            if round > bestRound { bestRound = round }
+        }
         round += 1
         selectedPosition = nil
         undoGrid = nil
         undoScore = nil
         undoUsedThisRound = false
+        comboBonusTotal = 0
+        comboMessage = nil
 
-        // Board persists! Only clear matched tile (already done in performBlend).
-        // Check if the board already contains the target from a previous round's leftovers
-        // — that's a freebie the player can tap.
+        // Determine how many targets this round
+        let targetCount = targetCountForRound
+        totalTargetsThisRound = targetCount
 
-        // Pick a target color at the current difficulty
-        let candidates = PrismColor.targets(maxDepth: maxDepth)
-        // Prefer targets not already on the board (don't give free wins)
+        // Generate all targets for this round
+        var targets: [PrismColor] = []
         let boardColors = Set(grid.flatMap { $0 }.compactMap { $0 })
-        let preferred = candidates.filter { !boardColors.contains($0) }
-        targetColor = (preferred.isEmpty ? candidates : preferred).randomElement()
-
-        guard let target = targetColor else { return }
-
-        // Get primary ingredients (optimal decomposition)
-        let ingredients = PrismColor.optimalIngredients[target.wheelIndex]
-            ?? PrismColor.primaryIngredients(for: target)
-
-        // Check if there's room to spawn ingredients
-        let emptyCount = emptyPositions().count
-        if emptyCount < ingredients.count {
-            // Not enough room — game over (board is too cluttered)
-            isGameOver = true
-            HapticManager.gameOver()
-            SoundManager.shared.playGameOver()
-            return
+        for _ in 0..<targetCount {
+            let candidates = PrismColor.targets(maxDepth: maxDepth)
+            let alreadyChosen = Set(targets)
+            let preferred = candidates.filter { !boardColors.contains($0) && !alreadyChosen.contains($0) }
+            if let pick = (preferred.isEmpty ? candidates.filter { !alreadyChosen.contains($0) } : preferred).randomElement() {
+                targets.append(pick)
+            } else if let fallback = candidates.randomElement() {
+                targets.append(fallback)
+            }
         }
 
-        // Spawn ingredients in a connected cluster
-        let placed = spawnConnectedCluster(tiles: ingredients.shuffled())
+        guard !targets.isEmpty else { return }
 
-        // Spawn distractors in random empty spots
+        // Set first target, queue the rest
+        targetColor = targets[0]
+        pendingTargets = Array(targets.dropFirst())
+
+        // Spawn ingredients for first target
+        if !spawnIngredientsForCurrentTarget() { return }
+
+        // Spawn primary distractors
         let numDistractors = min(distractorCount, emptyPositions().count)
         for _ in 0..<numDistractors {
             if let pos = emptyPositions().randomElement() {
@@ -288,7 +433,54 @@ class GameState {
             }
         }
 
-        // First round: highlight ingredient tiles with a breathing glow
+        // Spawn poison tiles (non-primary distractors) after round 10
+        poisonPositions = []
+        if poisonTileCount > 0 {
+            // Show intro popup the first time
+            if !hasSeenPoisonIntro {
+                showPoisonIntro = true
+                hasSeenPoisonIntro = true
+            }
+
+            let numPoison = min(poisonTileCount, emptyPositions().count)
+            let poisonCandidates = PrismColor.allColors.filter { !$0.isPrimary }
+            for _ in 0..<numPoison {
+                if let pos = emptyPositions().randomElement(),
+                   let poison = poisonCandidates.randomElement() {
+                    grid[pos.row][pos.col] = poison
+                    poisonPositions.insert(pos)
+                }
+            }
+        }
+
+        // First round: highlight ingredient tiles
+        // (hintPositions set in spawnIngredientsForCurrentTarget for round 1)
+    }
+
+    /// Spawn ingredients for the current target. Returns false if game over (no room).
+    @discardableResult
+    private func spawnIngredientsForCurrentTarget() -> Bool {
+        guard let target = targetColor else { return false }
+
+        let ingredients = PrismColor.optimalIngredients[target.wheelIndex] ?? [target]
+
+        // Set par for combo tracking
+        parForCurrentTarget = ingredients.count - 1
+        blendsThisTarget = 0
+
+        let emptyCount = emptyPositions().count
+        if emptyCount < ingredients.count {
+            computeNearMissStats()
+            if round > bestRound { bestRound = round }
+            updateHighScore()
+            isGameOver = true
+            HapticManager.gameOver()
+            SoundManager.shared.playGameOver()
+            return false
+        }
+
+        let placed = spawnConnectedCluster(tiles: ingredients.shuffled())
+
         if round == 1 {
             hintPositions = Set(placed)
             showMergeHint = true
@@ -296,6 +488,19 @@ class GameState {
             hintPositions = []
             showMergeHint = false
         }
+
+        return true
+    }
+
+    /// Advance to the next target in a multi-step round.
+    private func advanceToNextTarget() {
+        guard !pendingTargets.isEmpty else { return }
+        targetColor = pendingTargets.removeFirst()
+        undoGrid = nil
+        undoScore = nil
+        undoUsedThisRound = false
+
+        spawnIngredientsForCurrentTarget()
     }
 
     @discardableResult
@@ -309,7 +514,6 @@ class GameState {
         placed.append(start)
 
         for i in 1..<tiles.count {
-            // Find empty cells adjacent to any already-placed tile
             var candidates: [GridPosition] = []
             for p in placed {
                 for adj in adjacentPositions(to: p) {
@@ -323,7 +527,6 @@ class GameState {
                 grid[pos.row][pos.col] = tiles[i]
                 placed.append(pos)
             } else if let fallback = emptyPositions().randomElement() {
-                // No adjacent empty cell — place anywhere (less ideal but game continues)
                 grid[fallback.row][fallback.col] = tiles[i]
                 placed.append(fallback)
             }
@@ -335,14 +538,58 @@ class GameState {
 
     private func checkGameOver() {
         if !canStillWin() {
+            computeNearMissStats()
+            if round > bestRound { bestRound = round }
+            updateHighScore()
             isGameOver = true
             HapticManager.gameOver()
             SoundManager.shared.playGameOver()
         }
     }
 
-    /// Check if the target can still be produced by some sequence of blends.
-    /// Uses exhaustive search with memoization (capped at 50 000 nodes for safety).
+    /// Compute near-miss data for the game over screen.
+    private func computeNearMissStats() {
+        guard let target = targetColor else { return }
+
+        // Find all colors currently on the board
+        var boardColors: [PrismColor] = []
+        for r in 0..<gridSize {
+            for c in 0..<gridSize {
+                if let tile = grid[r][c] {
+                    boardColors.append(tile)
+                }
+            }
+        }
+
+        // Find closest color on the board to the target (by wheel distance)
+        var minDist = 24
+        var closest: PrismColor? = nil
+        for color in boardColors {
+            let diff = abs(color.wheelIndex - target.wheelIndex)
+            let dist = min(diff, 24 - diff)
+            if dist < minDist {
+                minDist = dist
+                closest = color
+            }
+        }
+        closestColorDistance = minDist
+        closestColorOnBoard = closest
+
+        // Count how many single blends could produce ANY result closer to target
+        var helpfulBlends = 0
+        for i in 0..<boardColors.count {
+            for j in (i + 1)..<boardColors.count {
+                let result = PrismColor.mix(boardColors[i], boardColors[j])
+                let resultDiff = abs(result.wheelIndex - target.wheelIndex)
+                let resultDist = min(resultDiff, 24 - resultDiff)
+                if resultDist < minDist {
+                    helpfulBlends += 1
+                }
+            }
+        }
+        nearMissBlendCount = helpfulBlends
+    }
+
     func canStillWin() -> Bool {
         guard let target = targetColor else { return false }
         var colors: [Int] = []
@@ -366,7 +613,7 @@ class GameState {
         memo: inout Set<[Int]>, nodes: inout Int
     ) -> Bool {
         nodes += 1
-        if nodes > 50_000 { return true }  // assume solvable if too complex
+        if nodes > 50_000 { return true }
         if sorted.count < 2 { return false }
         if memo.contains(sorted) { return false }
         memo.insert(sorted)
@@ -378,10 +625,8 @@ class GameState {
                     PrismColor(wheelIndex: sorted[j])
                 ).wheelIndex
 
-                // Found a blend that produces the target!
                 if result == target { return true }
 
-                // Try further blends from the resulting board
                 var remaining: [Int] = []
                 for k in 0..<sorted.count where k != i && k != j {
                     remaining.append(sorted[k])
@@ -422,6 +667,27 @@ class GameState {
         hintPositions = []
         showMergeHint = false
         targetColor = nil
+        pendingTargets = []
+        totalTargetsThisRound = 1
+        showSubTargetComplete = false
+        blendsThisTarget = 0
+        parForCurrentTarget = 0
+        comboMessage = nil
+        comboBonusTotal = 0
+        showPoisonIntro = false
+        poisonPositions = []
+        roundCompleteCanDismiss = false
+        tunnelDepth = 0
+        totalBlendsThisGame = 0
+        totalRoundsCompletedThisGame = 0
+        nearMissBlendCount = 0
+        closestColorDistance = 0
+        closestColorOnBoard = nil
         startNewRound()
+    }
+
+    /// Dismiss the poison intro popup (called from UI)
+    func dismissPoisonIntro() {
+        showPoisonIntro = false
     }
 }

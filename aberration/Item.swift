@@ -129,35 +129,43 @@ struct PrismColor: Hashable, Equatable, Sendable, Identifiable {
         return primaryIngredients(for: byIndex(a)) + primaryIngredients(for: byIndex(b))
     }
 
-    /// Optimal primary ingredients — tries ALL mixing pairs, picks the one needing fewest primaries.
-    /// Computed once at launch.
+    /// Direct pair for every target: exactly 2 colors that mix to produce it.
+    /// Always 1 blend — no ordering traps. Prefers pairs with more primaries.
+    static let directPair: [Int: (PrismColor, PrismColor)] = {
+        var result: [Int: (PrismColor, PrismColor)] = [:]
+        for target in 0..<24 {
+            if target == 0 || target == 8 || target == 16 { continue } // primaries
+            var bestPair: (Int, Int)? = nil
+            var bestPrimaryCount = -1
+            for a in 0..<24 {
+                for b in (a + 1)..<24 {
+                    guard mix(byIndex(a), byIndex(b)).wheelIndex == target else { continue }
+                    let pc = (a == 0 || a == 8 || a == 16 ? 1 : 0)
+                           + (b == 0 || b == 8 || b == 16 ? 1 : 0)
+                    if pc > bestPrimaryCount {
+                        bestPrimaryCount = pc
+                        bestPair = (a, b)
+                    }
+                }
+            }
+            if let (a, b) = bestPair {
+                result[target] = (byIndex(a), byIndex(b))
+            }
+        }
+        return result
+    }()
+
+    /// Legacy: kept for compatibility. Returns the direct pair as an array.
     static let optimalIngredients: [Int: [PrismColor]] = {
-        var cache: [Int: [PrismColor]] = [
+        var result: [Int: [PrismColor]] = [
             0: [PrismColor(wheelIndex: 0)],
             8: [PrismColor(wheelIndex: 8)],
             16: [PrismColor(wheelIndex: 16)]
         ]
-        // Process by depth so dependencies are resolved first
-        let order = [
-            4, 12, 20,                                     // depth 1
-            2, 6, 10, 14, 18, 22,                          // depth 2
-            1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23     // depth 3
-        ]
-        for target in order {
-            var best: [PrismColor]? = nil
-            for a in 0..<24 {
-                for b in (a + 1)..<24 {
-                    guard mix(byIndex(a), byIndex(b)).wheelIndex == target else { continue }
-                    guard let ingA = cache[a], let ingB = cache[b] else { continue }
-                    let total = ingA + ingB
-                    if best == nil || total.count < best!.count {
-                        best = total
-                    }
-                }
-            }
-            if let best { cache[target] = best }
+        for (target, (a, b)) in directPair {
+            result[target] = [a, b]
         }
-        return cache
+        return result
     }()
 
     /// Non-primary colors available up to a given depth.
