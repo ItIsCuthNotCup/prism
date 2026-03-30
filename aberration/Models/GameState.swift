@@ -22,6 +22,9 @@ class GameState {
     var blendingPositions: (GridPosition, GridPosition)? = nil
     var showMilestone: Bool = false
 
+    /// Positions that were emptied by the last successful match — excluded from next spawn
+    private var recentlyEmptiedPositions: Set<GridPosition> = []
+
     // MARK: - Tunnel Background
     /// Increments each time a round completes — drives the tunnel intensity
     var tunnelDepth: Int = 0
@@ -208,6 +211,18 @@ class GameState {
 
         tapPulseID += 1
 
+        // Poison tile = instant game over
+        if poisonPositions.contains(pos) {
+            selectedPosition = nil
+            computeNearMissStats()
+            if round > bestRound { bestRound = round }
+            updateHighScore()
+            isGameOver = true
+            HapticManager.gameOver()
+            SoundManager.shared.playGameOver()
+            return
+        }
+
         if showMergeHint {
             hintPositions = []
             showMergeHint = false
@@ -248,10 +263,12 @@ class GameState {
         Task {
             try? await Task.sleep(for: .milliseconds(80))
 
-            let involvedPoison = poisonPositions.contains(posA) || poisonPositions.contains(posB)
-
             HapticManager.blend()
-            SoundManager.shared.playBlendTone(for: result)
+            // Skip the blend tone on a winning match — let the round-complete sound play clean
+            let isMatch = targetColor != nil && result == targetColor!
+            if !isMatch {
+                SoundManager.shared.playBlendTone(for: result)
+            }
 
             grid[posA.row][posA.col] = result
             grid[posB.row][posB.col] = nil
@@ -259,18 +276,6 @@ class GameState {
             poisonPositions.remove(posB)
             blendingPositions = nil
             lastBlendPosition = posA
-
-            if involvedPoison {
-                // Poison penalty: lose points, no blend credit
-                let penalty = min(score, 50)
-                score -= penalty
-                HapticManager.gameOver()  // strong warning buzz
-                try? await Task.sleep(for: .milliseconds(120))
-                lastBlendPosition = nil
-                checkGameOver()
-                isProcessing = false
-                return
-            }
 
             score += 10
             blendsThisTarget += 1
@@ -294,8 +299,9 @@ class GameState {
                 try? await Task.sleep(for: .milliseconds(250))
                 HapticManager.lineClear()
 
-                // Remove matched tile
+                // Remove matched tile and track emptied positions
                 grid[posA.row][posA.col] = nil
+                recentlyEmptiedPositions = [posA, posB]
                 matchedPosition = nil
                 lastBlendPosition = nil
 
@@ -441,6 +447,31 @@ class GameState {
         targetColor = targets[0]
         pendingTargets = Array(targets.dropFirst())
 
+        // Clear some random tiles to create breathing room & prevent same-spot loops.
+        // After round 3, remove a few random non-poison tiles each round.
+        // This ensures new ingredients never land in the same spot as the last blend.
+        if round > 3 {
+            let empty = emptyPositions()
+            let occupiedCount = gridSize * gridSize - empty.count
+            // Remove 2-4 tiles depending on how full the board is
+            let clearCount = occupiedCount > 18 ? 4 : (occupiedCount > 12 ? 3 : 2)
+            var removable: [GridPosition] = []
+            for r in 0..<gridSize {
+                for c in 0..<gridSize {
+                    let pos = GridPosition(row: r, col: c)
+                    if grid[r][c] != nil && !poisonPositions.contains(pos) {
+                        removable.append(pos)
+                    }
+                }
+            }
+            // Prefer removing tiles that are NOT recently emptied (spread the clearing around)
+            let preferred = removable.filter { !recentlyEmptiedPositions.contains($0) }
+            let pool = preferred.isEmpty ? removable : preferred
+            for pos in pool.shuffled().prefix(clearCount) {
+                grid[pos.row][pos.col] = nil
+            }
+        }
+
         // Spawn ingredients for first target
         if !spawnIngredientsForCurrentTarget() { return }
 
@@ -528,23 +559,11 @@ class GameState {
         let empty = emptyPositions()
         guard !empty.isEmpty else { return [] }
 
-        // When board is crowded (≤ tiles.count + 2 empty slots),
-        // scatter randomly so placement isn't obviously "the answer"
-        let scatter = empty.count <= tiles.count + 2
-
         var placed: [GridPosition] = []
 
-        if scatter {
-            // Scatter mode: pick random empty positions, spread apart
-            var available = empty.shuffled()
-            for i in 0..<tiles.count {
-                guard !available.isEmpty else { break }
-                let pos = available.removeFirst()
-                grid[pos.row][pos.col] = tiles[i]
-                placed.append(pos)
-            }
-        } else {
-            // Cluster mode: group tiles near each other (original behavior)
+        if round <= 2 && empty.count > tiles.count + 4 {
+            // Early rounds only: cluster tiles near each other so new players
+            // can see they're related. After round 2, always scatter.
             guard let start = empty.randomElement() else { return [] }
             grid[start.row][start.col] = tiles[0]
             placed.append(start)
@@ -558,7 +577,6 @@ class GameState {
                         }
                     }
                 }
-
                 if let pos = candidates.randomElement() {
                     grid[pos.row][pos.col] = tiles[i]
                     placed.append(pos)
@@ -567,7 +585,21 @@ class GameState {
                     placed.append(fallback)
                 }
             }
+        } else {
+            // Scatter mode: avoid positions that were just emptied by the last match
+            // This prevents the "infinite obvious choice" loop
+            let preferred = empty.filter { !recentlyEmptiedPositions.contains($0) }
+            var available = (preferred.count >= tiles.count ? preferred : empty).shuffled()
+            for i in 0..<tiles.count {
+                guard !available.isEmpty else { break }
+                let pos = available.removeFirst()
+                grid[pos.row][pos.col] = tiles[i]
+                placed.append(pos)
+            }
         }
+
+        // Clear after use
+        recentlyEmptiedPositions = []
         return placed
     }
 
@@ -713,6 +745,7 @@ class GameState {
         comboBonusTotal = 0
         showPoisonIntro = false
         poisonPositions = []
+        recentlyEmptiedPositions = []
         roundCompleteCanDismiss = false
         tunnelDepth = 0
         totalBlendsThisGame = 0

@@ -11,11 +11,10 @@ struct TileView: View {
     var showLabel: Bool = false
     var blendPreview: PrismColor? = nil
 
-    @State private var appeared = false
+    @State private var appeared = true
     @State private var hintGlow = false
 
     private var currentScale: CGFloat {
-        if !appeared { return 0.01 }
         if isBlending { return 0.3 }
         if isMatched { return 1.12 }
         if isBlendResult { return 1.06 }
@@ -117,9 +116,6 @@ struct TileView: View {
                 y: isHinted ? 0 : 2
             )
             .onAppear {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) {
-                    appeared = true
-                }
                 if isHinted {
                     withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
                         hintGlow = true

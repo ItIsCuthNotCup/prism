@@ -130,30 +130,30 @@ struct PrismColor: Hashable, Equatable, Sendable, Identifiable {
     }
 
     /// Direct pair for every target: exactly 2 colors that mix to produce it.
-    /// Always 1 blend — no ordering traps. Prefers pairs with more primaries.
-    static let directPair: [Int: (PrismColor, PrismColor)] = {
-        var result: [Int: (PrismColor, PrismColor)] = [:]
-        for target in 0..<24 {
-            if target == 0 || target == 8 || target == 16 { continue } // primaries
-            var bestPair: (Int, Int)? = nil
-            var bestPrimaryCount = -1
-            for a in 0..<24 {
-                for b in (a + 1)..<24 {
-                    guard mix(byIndex(a), byIndex(b)).wheelIndex == target else { continue }
-                    let pc = (a == 0 || a == 8 || a == 16 ? 1 : 0)
-                           + (b == 0 || b == 8 || b == 16 ? 1 : 0)
-                    if pc > bestPrimaryCount {
-                        bestPrimaryCount = pc
-                        bestPair = (a, b)
-                    }
-                }
-            }
-            if let (a, b) = bestPair {
-                result[target] = (byIndex(a), byIndex(b))
-            }
-        }
-        return result
-    }()
+    /// Hand-curated so every combination is intuitive (adjacent on the wheel).
+    static let directPair: [Int: (PrismColor, PrismColor)] = [
+        1:  (byIndex(0),  byIndex(2)),   // Red + Vermillion → Scarlet
+        2:  (byIndex(0),  byIndex(4)),   // Red + Orange → Vermillion
+        3:  (byIndex(2),  byIndex(4)),   // Vermillion + Orange → Tangerine
+        4:  (byIndex(0),  byIndex(8)),   // Red + Yellow → Orange
+        5:  (byIndex(2),  byIndex(8)),   // Vermillion + Yellow → Amber
+        6:  (byIndex(4),  byIndex(8)),   // Orange + Yellow → Gold
+        7:  (byIndex(6),  byIndex(8)),   // Gold + Yellow → Lemon
+        9:  (byIndex(8),  byIndex(10)),  // Yellow + Chartreuse → Lime
+        10: (byIndex(8),  byIndex(12)),  // Yellow + Green → Chartreuse
+        11: (byIndex(10), byIndex(12)),  // Chartreuse + Green → Mint
+        12: (byIndex(8),  byIndex(16)),  // Yellow + Blue → Green
+        13: (byIndex(12), byIndex(14)),  // Green + Teal → Jade
+        14: (byIndex(12), byIndex(16)),  // Green + Blue → Teal
+        15: (byIndex(14), byIndex(16)),  // Teal + Blue → Cerulean
+        17: (byIndex(16), byIndex(18)),  // Blue + Indigo → Azure
+        18: (byIndex(16), byIndex(20)),  // Blue + Purple → Indigo
+        19: (byIndex(16), byIndex(22)),  // Blue + Magenta → Violet
+        20: (byIndex(0),  byIndex(16)),  // Red + Blue → Purple
+        21: (byIndex(20), byIndex(22)),  // Purple + Magenta → Plum
+        22: (byIndex(0),  byIndex(20)),  // Red + Purple → Magenta
+        23: (byIndex(0),  byIndex(22)),  // Red + Magenta → Crimson
+    ]
 
     /// Legacy: kept for compatibility. Returns the direct pair as an array.
     static let optimalIngredients: [Int: [PrismColor]] = {

@@ -14,10 +14,14 @@ struct PrismGameView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let gridPadding: CGFloat = 24
-            let availableWidth = geo.size.width - gridPadding * 2
+            // Cap total content width for iPad; on iPhone this is just geo.size.width
+            let maxContentWidth: CGFloat = min(geo.size.width, 500)
+            let contentPadding: CGFloat = 16          // outer margin each side
+            let gridInset: CGFloat = 12               // glass container inner padding each side
             let spacing: CGFloat = 5
-            let cellSize = max(1, min(64, (availableWidth - CGFloat(GridPosition.gridSize - 1) * spacing) / CGFloat(GridPosition.gridSize)))
+            // Cell size = (contentWidth - outer padding - grid inset - inter-cell spacing) / columns
+            let cellsArea = maxContentWidth - contentPadding * 2 - gridInset * 2
+            let cellSize = max(1, (cellsArea - CGFloat(GridPosition.gridSize - 1) * spacing) / CGFloat(GridPosition.gridSize))
 
             ZStack {
                 Color(hex: 0xF5F5F7)
@@ -54,7 +58,7 @@ struct PrismGameView: View {
                     .padding(.vertical, 12)
                     .background(glassCard(cornerRadius: 16))
 
-                    // Target color + progress
+                    // Target color + progress + blend preview
                     if let target = game.targetColor {
                         VStack(spacing: 8) {
                             // Multi-step progress
@@ -128,36 +132,36 @@ struct PrismGameView: View {
                                         )
                                 }
                             }
+
+                            // Blend preview / hint (inside the card)
+                            ZStack {
+                                if let sel = game.selectedColor {
+                                    HStack(spacing: 5) {
+                                        RoundedRectangle(cornerRadius: 3)
+                                            .fill(sel.color)
+                                            .frame(width: 12, height: 12)
+                                        Text("\(sel.shortName) + ?")
+                                            .font(.system(size: 12, weight: .medium))
+                                            .foregroundStyle(Color(hex: 0xAAAAAA))
+                                    }
+                                }
+
+                                Text("Tap two colors to blend them")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundStyle(Color(hex: 0x999999))
+                                    .tracking(1)
+                                    .opacity(game.showMergeHint && game.selectedColor == nil ? 1 : 0)
+                            }
+                            .frame(height: 20)
+                            .animation(.easeInOut(duration: 0.15), value: game.selectedPosition)
                         }
-                        .padding(.vertical, 2)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                        .background(glassCard(cornerRadius: 16))
                         .id(target.wheelIndex)
                         .transition(.scale.combined(with: .opacity))
                         .animation(.spring(response: 0.4), value: target.wheelIndex)
                     }
-
-                    // Fixed-height hint area — prevents grid from shifting
-                    ZStack {
-                        // Blend preview — shows selected color
-                        if let sel = game.selectedColor {
-                            HStack(spacing: 5) {
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(sel.color)
-                                    .frame(width: 12, height: 12)
-                                Text("\(sel.shortName) + ?")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundStyle(Color(hex: 0xAAAAAA))
-                            }
-                        }
-
-                        // First-round hint
-                        Text("Tap two colors to blend them")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(Color(hex: 0x999999))
-                            .tracking(1)
-                            .opacity(game.showMergeHint && game.selectedColor == nil ? 1 : 0)
-                    }
-                    .frame(height: 20)
-                    .animation(.easeInOut(duration: 0.15), value: game.selectedPosition)
 
                     Spacer(minLength: 0)
 
@@ -215,8 +219,10 @@ struct PrismGameView: View {
                     .opacity(game.showRoundComplete || game.isGameOver || game.showSubTargetComplete || game.showPoisonIntro ? 0 : 1)
                     .animation(.easeInOut(duration: 0.2), value: game.canUndo)
                 }
-                .padding(.horizontal, gridPadding)
+                .padding(.horizontal, contentPadding)
                 .padding(.top, 8)
+                .frame(maxWidth: maxContentWidth)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 // Sub-target complete overlay (multi-step)
                 if game.showSubTargetComplete {
@@ -508,12 +514,12 @@ struct PrismGameView: View {
                     .tracking(4)
 
                 VStack(spacing: 8) {
-                    Text("Pre-mixed colors now appear on the board.")
+                    Text("Dangerous tiles now appear on the board.")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(Color(hex: 0x666666))
                         .multilineTextAlignment(.center)
 
-                    Text("They can't help you — and they take up space.")
+                    Text("Tap one and it's game over.")
                         .font(.system(size: 14, weight: .regular))
                         .foregroundStyle(Color(hex: 0x999999))
                         .multilineTextAlignment(.center)

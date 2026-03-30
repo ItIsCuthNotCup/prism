@@ -5,39 +5,55 @@ struct GridView: View {
     let cellSize: CGFloat
 
     private let spacing: CGFloat = 5
+    private let inset: CGFloat = 12
 
     var body: some View {
-        let totalSize = CGFloat(GridPosition.gridSize) * cellSize
-            + CGFloat(GridPosition.gridSize - 1) * spacing
+        let columns = Array(
+            repeating: GridItem(.fixed(cellSize), spacing: spacing),
+            count: GridPosition.gridSize
+        )
 
+        LazyVGrid(columns: columns, spacing: spacing) {
+            ForEach(0..<GridPosition.gridSize * GridPosition.gridSize, id: \.self) { index in
+                let row = index / GridPosition.gridSize
+                let col = index % GridPosition.gridSize
+                let pos = GridPosition(row: row, col: col)
+
+                cellView(at: pos)
+                    .frame(width: cellSize, height: cellSize)
+                    .onTapGesture {
+                        game.selectTile(at: pos)
+                    }
+            }
+        }
+        .padding(inset)
+        .background(glassContainer)
+    }
+
+    // MARK: - Glass Container
+
+    private var glassContainer: some View {
         ZStack {
-            // Glass container with chromatic aberration
-
             // Chromatic aberration — offset red/blue border traces
             RoundedRectangle(cornerRadius: 20)
                 .strokeBorder(Color.red.opacity(0.06), lineWidth: 1.5)
-                .frame(width: totalSize + 24, height: totalSize + 24)
                 .offset(x: -1.5, y: -0.5)
 
             RoundedRectangle(cornerRadius: 20)
                 .strokeBorder(Color.blue.opacity(0.06), lineWidth: 1.5)
-                .frame(width: totalSize + 24, height: totalSize + 24)
                 .offset(x: 1.5, y: 0.5)
 
             // Subtle green channel offset
             RoundedRectangle(cornerRadius: 20)
                 .strokeBorder(Color.green.opacity(0.03), lineWidth: 1)
-                .frame(width: totalSize + 24, height: totalSize + 24)
                 .offset(x: 0.5, y: -1)
 
             // Glass fill
             RoundedRectangle(cornerRadius: 20)
                 .fill(.white.opacity(0.45))
-                .frame(width: totalSize + 24, height: totalSize + 24)
 
             RoundedRectangle(cornerRadius: 20)
                 .fill(.ultraThinMaterial)
-                .frame(width: totalSize + 24, height: totalSize + 24)
 
             // Subtle inner highlight (top edge catch)
             RoundedRectangle(cornerRadius: 20)
@@ -49,28 +65,8 @@ struct GridView: View {
                     ),
                     lineWidth: 0.5
                 )
-                .frame(width: totalSize + 24, height: totalSize + 24)
-
-            // Outer drop shadow for depth
-            RoundedRectangle(cornerRadius: 20)
-                .fill(.clear)
-                .frame(width: totalSize + 24, height: totalSize + 24)
-                .shadow(color: .black.opacity(0.06), radius: 20, y: 8)
-
-            // Cells
-            ForEach(0..<GridPosition.gridSize, id: \.self) { row in
-                ForEach(0..<GridPosition.gridSize, id: \.self) { col in
-                    let pos = GridPosition(row: row, col: col)
-                    cellView(at: pos)
-                        .frame(width: cellSize, height: cellSize)
-                        .position(cellCenter(row: row, col: col, totalSize: totalSize))
-                        .onTapGesture {
-                            game.selectTile(at: pos)
-                        }
-                }
-            }
         }
-        .frame(width: totalSize + 24, height: totalSize + 24)
+        .shadow(color: .black.opacity(0.06), radius: 20, y: 8)
     }
 
     // MARK: - Cell
@@ -105,7 +101,6 @@ struct GridView: View {
                 showLabel: game.showColorLabels,
                 blendPreview: blendPreview
             )
-            .id(tileColor.wheelIndex)
         } else {
             // Empty cell — subtle glass indent
             RoundedRectangle(cornerRadius: 10)
@@ -126,13 +121,5 @@ struct GridView: View {
                         )
                 )
         }
-    }
-
-    // MARK: - Layout
-
-    private func cellCenter(row: Int, col: Int, totalSize: CGFloat) -> CGPoint {
-        let x = CGFloat(col) * (cellSize + spacing) + cellSize / 2 + 12
-        let y = CGFloat(row) * (cellSize + spacing) + cellSize / 2 + 12
-        return CGPoint(x: x, y: y)
     }
 }
