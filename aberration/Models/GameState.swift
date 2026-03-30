@@ -23,6 +23,29 @@ class GameState {
     /// Tracks whether the just-completed round is a milestone (every 4th)
     var showMilestone: Bool = false
 
+    // MARK: - Undo
+
+    /// Snapshot of grid + score before the last blend (one undo per round)
+    private var undoGrid: [[PrismColor?]]? = nil
+    private var undoScore: Int? = nil
+    var canUndo: Bool { undoGrid != nil }
+    /// Whether the free undo has been used this round
+    private var undoUsedThisRound: Bool = false
+
+    // MARK: - Settings
+
+    var showColorLabels: Bool {
+        get { UserDefaults.standard.bool(forKey: "prism_show_labels") }
+        set { UserDefaults.standard.set(newValue, forKey: "prism_show_labels") }
+    }
+
+    // MARK: - First-Round Hint
+
+    /// Positions of the two tiles to highlight with a breathing glow on round 1
+    var hintPositions: Set<GridPosition> = []
+    /// Whether to show "Merge the colors" prompt
+    var showMergeHint: Bool = false
+
     // MARK: - Difficulty Scaling
 
     var maxDepth: Int {
@@ -79,14 +102,14 @@ class GameState {
         }
     }
 
-    /// True if any two adjacent tiles exist (i.e. a blend is possible).
+    /// True if at least two tiles exist on the board (any two can blend).
     func hasAnyBlend() -> Bool {
+        var count = 0
         for r in 0..<gridSize {
             for c in 0..<gridSize {
-                let pos = GridPosition(row: r, col: c)
-                guard tile(at: pos) != nil else { continue }
-                for adj in adjacentPositions(to: pos) {
-                    if tile(at: adj) != nil { return true }
+                if grid[r][c] != nil {
+                    count += 1
+                    if count >= 2 { return true }
                 }
             }
         }
@@ -100,6 +123,12 @@ class GameState {
         guard tile(at: pos) != nil else {
             selectedPosition = nil
             return
+        }
+
+        // Clear first-round hint as soon as player interacts
+        if showMergeHint {
+            hintPositions = []
+            showMergeHint = false
         }
 
         if let sel = selectedPosition {
@@ -129,6 +158,12 @@ class GameState {
         isProcessing = true
         selectedPosition = nil
         let result = PrismColor.mix(colorA, colorB)
+
+        // Save undo snapshot (only if undo hasn't been used this round)
+        if !undoUsedThisRound {
+            undoGrid = grid.map { $0 }
+            undoScore = score
+        }
 
         // Phase 1: both tiles shrink (visual only — tiles still on grid during animation)
         blendingPositions = (posA, posB)
@@ -193,15 +228,35 @@ class GameState {
         }
     }
 
+    // MARK: - Undo Action
+
+    func undoLastBlend() {
+        guard let savedGrid = undoGrid, let savedScore = undoScore else { return }
+        grid = savedGrid
+        score = savedScore
+        undoGrid = nil
+        undoScore = nil
+        undoUsedThisRound = true
+        lastBlendPosition = nil
+        selectedPosition = nil
+    }
+
     // MARK: - Round Management
 
     func startNewRound() {
         round += 1
         selectedPosition = nil
+        undoGrid = nil
+        undoScore = nil
+        undoUsedThisRound = false
+
+        // Board persists! Only clear matched tile (already done in performBlend).
+        // Check if the board already contains the target from a previous round's leftovers
+        // — that's a freebie the player can tap.
 
         // Pick a target color at the current difficulty
         let candidates = PrismColor.targets(maxDepth: maxDepth)
-        // Prefer targets not already on the board
+        // Prefer targets not already on the board (don't give free wins)
         let boardColors = Set(grid.flatMap { $0 }.compactMap { $0 })
         let preferred = candidates.filter { !boardColors.contains($0) }
         targetColor = (preferred.isEmpty ? candidates : preferred).randomElement()
@@ -212,8 +267,10 @@ class GameState {
         let ingredients = PrismColor.optimalIngredients[target.wheelIndex]
             ?? PrismColor.primaryIngredients(for: target)
 
-        // Check if there's room
-        if emptyPositions().count < ingredients.count {
+        // Check if there's room to spawn ingredients
+        let emptyCount = emptyPositions().count
+        if emptyCount < ingredients.count {
+            // Not enough room — game over (board is too cluttered)
             isGameOver = true
             HapticManager.gameOver()
             SoundManager.shared.playGameOver()
@@ -221,7 +278,7 @@ class GameState {
         }
 
         // Spawn ingredients in a connected cluster
-        spawnConnectedCluster(tiles: ingredients.shuffled())
+        let placed = spawnConnectedCluster(tiles: ingredients.shuffled())
 
         // Spawn distractors in random empty spots
         let numDistractors = min(distractorCount, emptyPositions().count)
@@ -230,12 +287,22 @@ class GameState {
                 grid[pos.row][pos.col] = PrismColor.primaries.randomElement()!
             }
         }
+
+        // First round: highlight ingredient tiles with a breathing glow
+        if round == 1 {
+            hintPositions = Set(placed)
+            showMergeHint = true
+        } else {
+            hintPositions = []
+            showMergeHint = false
+        }
     }
 
-    private func spawnConnectedCluster(tiles: [PrismColor]) {
-        guard !tiles.isEmpty else { return }
+    @discardableResult
+    private func spawnConnectedCluster(tiles: [PrismColor]) -> [GridPosition] {
+        guard !tiles.isEmpty else { return [] }
         let empty = emptyPositions()
-        guard let start = empty.randomElement() else { return }
+        guard let start = empty.randomElement() else { return [] }
 
         var placed: [GridPosition] = []
         grid[start.row][start.col] = tiles[0]
@@ -261,24 +328,71 @@ class GameState {
                 placed.append(fallback)
             }
         }
+        return placed
     }
 
     // MARK: - Game Over
 
     private func checkGameOver() {
-        // Game continues as long as blends are possible
-        if !hasAnyBlend() && !boardContainsTarget() {
+        if !canStillWin() {
             isGameOver = true
             HapticManager.gameOver()
             SoundManager.shared.playGameOver()
         }
     }
 
-    private func boardContainsTarget() -> Bool {
+    /// Check if the target can still be produced by some sequence of blends.
+    /// Uses exhaustive search with memoization (capped at 50 000 nodes for safety).
+    func canStillWin() -> Bool {
         guard let target = targetColor else { return false }
+        var colors: [Int] = []
         for r in 0..<gridSize {
             for c in 0..<gridSize {
-                if grid[r][c] == target { return true }
+                if let tile = grid[r][c] {
+                    colors.append(tile.wheelIndex)
+                }
+            }
+        }
+        if colors.count < 2 { return false }
+
+        var memo = Set<[Int]>()
+        var nodes = 0
+        return Self.searchForTarget(colors.sorted(), target: target.wheelIndex,
+                                     memo: &memo, nodes: &nodes)
+    }
+
+    private static func searchForTarget(
+        _ sorted: [Int], target: Int,
+        memo: inout Set<[Int]>, nodes: inout Int
+    ) -> Bool {
+        nodes += 1
+        if nodes > 50_000 { return true }  // assume solvable if too complex
+        if sorted.count < 2 { return false }
+        if memo.contains(sorted) { return false }
+        memo.insert(sorted)
+
+        for i in 0..<sorted.count {
+            for j in (i + 1)..<sorted.count {
+                let result = PrismColor.mix(
+                    PrismColor(wheelIndex: sorted[i]),
+                    PrismColor(wheelIndex: sorted[j])
+                ).wheelIndex
+
+                // Found a blend that produces the target!
+                if result == target { return true }
+
+                // Try further blends from the resulting board
+                var remaining: [Int] = []
+                for k in 0..<sorted.count where k != i && k != j {
+                    remaining.append(sorted[k])
+                }
+                remaining.append(result)
+                remaining.sort()
+
+                if searchForTarget(remaining, target: target,
+                                   memo: &memo, nodes: &nodes) {
+                    return true
+                }
             }
         }
         return false
@@ -302,6 +416,11 @@ class GameState {
         lastBlendPosition = nil
         blendingPositions = nil
         showMilestone = false
+        undoGrid = nil
+        undoScore = nil
+        undoUsedThisRound = false
+        hintPositions = []
+        showMergeHint = false
         targetColor = nil
         startNewRound()
     }

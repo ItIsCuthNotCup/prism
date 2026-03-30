@@ -57,6 +57,17 @@ struct PrismColor: Hashable, Equatable, Sendable, Identifiable {
     var depth: Int { Self.depths[wheelIndex] }
     var isPrimary: Bool { wheelIndex == 0 || wheelIndex == 8 || wheelIndex == 16 }
 
+    /// Short 2-3 letter abbreviation for tile labels
+    static let shortNames: [String] = [
+        "RED", "SCR", "VRM", "TNG",
+        "ORG", "AMB", "GLD", "LMN",
+        "YLW", "LIM", "CHR", "MNT",
+        "GRN", "JAD", "TEL", "CER",
+        "BLU", "AZR", "IND", "VIO",
+        "PUR", "PLM", "MAG", "CRM"
+    ]
+    var shortName: String { Self.shortNames[wheelIndex] }
+
     var highlightColor: Color {
         let hex = Self.hexValues[wheelIndex]
         let r = (hex >> 16) & 0xFF
@@ -87,20 +98,24 @@ struct PrismColor: Hashable, Equatable, Sendable, Identifiable {
         let bi = b.wheelIndex
         if ai == bi { return a }
 
-        let diff = (bi - ai + 24) % 24
+        // Normalize so lo < hi — guarantees commutativity
+        let lo = min(ai, bi)
+        let hi = max(ai, bi)
+        let clockwise = hi - lo        // 1..23
+        let counter = 24 - clockwise   // 1..23
+
         let result: Int
-        if diff == 12 {
-            // Exactly opposite — clockwise midpoint
-            result = (ai + 6) % 24
-        } else if diff <= 12 {
-            // Shorter arc is clockwise
-            let mid = Double(ai) + Double(diff) / 2.0
+        if clockwise < counter {
+            // Shorter arc goes lo → hi (clockwise)
+            let mid = Double(lo) + Double(clockwise) / 2.0
+            result = Int(mid.rounded()) % 24
+        } else if counter < clockwise {
+            // Shorter arc goes hi → lo (wrapping past 0)
+            let mid = Double(hi) + Double(counter) / 2.0
             result = Int(mid.rounded()) % 24
         } else {
-            // Shorter arc is counter-clockwise
-            let ccDiff = 24 - diff
-            let mid = Double(ai) - Double(ccDiff) / 2.0
-            result = ((Int(mid.rounded()) % 24) + 24) % 24
+            // Exactly opposite — deterministic midpoint
+            result = (lo + 6) % 24
         }
         return byIndex(result)
     }
