@@ -594,7 +594,7 @@ struct PrismGameView: View {
                 VStack(spacing: 16) {
                     ChromaHeader(fontSize: 52)
 
-                    Text("Blent")
+                    Text("Chromatose")
                         .font(.system(size: 32, weight: .bold, design: .rounded))
                         .foregroundStyle(Color(hex: 0x3A3A4A))
                 }
@@ -608,6 +608,10 @@ struct PrismGameView: View {
                         .font(.system(size: 14, weight: .regular))
                         .foregroundStyle(Color(hex: 0xBBBBBB))
                 }
+
+                CatMascotView()
+                    .frame(height: 120)
+                    .padding(.horizontal, 40)
 
                 Spacer()
 
