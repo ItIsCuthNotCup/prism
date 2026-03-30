@@ -2,73 +2,119 @@
 //  ChromaHeader.swift
 //  Blent – Color-Mixing Puzzle Game
 //
+//  Iridescent droplet logo with chromatic glow that slowly breathes.
+//
 
 import SwiftUI
 
-/// Animated "BLENT" title — white text only visible through its chromatic aberration glow.
-struct ChromaHeader: View {
-    var fontSize: CGFloat = 28
-    var tracking: CGFloat = 8
+// MARK: - Teardrop Shape
 
-    private var baseFont: Font {
-        .system(size: fontSize, weight: .black, design: .rounded)
+struct Teardrop: Shape {
+    func path(in rect: CGRect) -> Path {
+        let w = rect.width
+        let h = rect.height
+        // Rounded teardrop: wide bottom, pointed top
+        var path = Path()
+        // Start at top (the pointed tip)
+        path.move(to: CGPoint(x: w * 0.5, y: 0))
+        // Right curve down to bottom
+        path.addCurve(
+            to: CGPoint(x: w * 0.5, y: h),
+            control1: CGPoint(x: w * 0.95, y: h * 0.35),
+            control2: CGPoint(x: w * 0.85, y: h * 0.75)
+        )
+        // Left curve back up to top
+        path.addCurve(
+            to: CGPoint(x: w * 0.5, y: 0),
+            control1: CGPoint(x: w * 0.15, y: h * 0.75),
+            control2: CGPoint(x: w * 0.05, y: h * 0.35)
+        )
+        path.closeSubpath()
+        return path
+    }
+}
+
+// MARK: - Logo View
+
+/// Iridescent droplet symbol used as the app logo.
+/// `ChromaHeader` name kept for backward compatibility with ContentView call sites.
+struct ChromaHeader: View {
+    // fontSize now controls the droplet size (ignored tracking)
+    var fontSize: CGFloat = 28
+    var tracking: CGFloat = 8 // unused, kept for call-site compat
+
+    private var dropSize: CGFloat {
+        // Map old fontSize to a reasonable drop size
+        fontSize * 1.2
     }
 
     var body: some View {
         TimelineView(.animation) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
-            let breathe = 0.5 + 0.5 * sin(t * 0.8)  // 0…1, ~8s full cycle
-            let angle = t * 0.4                        // slow rotation
+            let breathe = 0.5 + 0.5 * sin(t * 0.7) // slow breathing
 
-            // Chromatic offsets — RGB channels orbit the text
-            let spread: CGFloat = 2.5 + CGFloat(breathe) * 2.0
-            let rOff = channelOffset(angle: angle, spread: spread)
-            let gOff = channelOffset(angle: angle + .pi * 2 / 3, spread: spread)
-            let bOff = channelOffset(angle: angle + .pi * 4 / 3, spread: spread)
-            let glowStrength = 0.5 + breathe * 0.4
+            // Rotate the gradient hue slowly
+            let hueShift = Angle(degrees: t * 15) // ~24s full cycle
 
             ZStack {
-                // Red channel — strong, slightly blurred
-                glowLayer(color: Color(hex: 0xFF3B5C), opacity: glowStrength,
-                          blur: 1.5 + breathe * 1.5, offset: rOff)
+                // Outer chromatic glow — breathes
+                Teardrop()
+                    .fill(
+                        AngularGradient(
+                            colors: [
+                                Color(hex: 0xFF3B5C),
+                                Color(hex: 0xFF9500),
+                                Color(hex: 0xFFD60A),
+                                Color(hex: 0x30D158),
+                                Color(hex: 0x00D4AA),
+                                Color(hex: 0x5AC8FA),
+                                Color(hex: 0x5856D6),
+                                Color(hex: 0xFF3B5C),
+                            ],
+                            center: .center,
+                            startAngle: hueShift,
+                            endAngle: hueShift + .degrees(360)
+                        )
+                    )
+                    .frame(width: dropSize, height: dropSize * 1.25)
+                    .blur(radius: 6 + breathe * 4)
+                    .opacity(0.6 + breathe * 0.3)
 
-                // Cyan/Green channel
-                glowLayer(color: Color(hex: 0x00D4AA), opacity: glowStrength,
-                          blur: 1.5 + breathe * 1.5, offset: gOff)
-
-                // Blue channel
-                glowLayer(color: Color(hex: 0x4488FF), opacity: glowStrength,
-                          blur: 1.5 + breathe * 1.5, offset: bOff)
-
-                // Soft diffuse halo underneath
-                Text("BLENT")
-                    .font(baseFont)
-                    .tracking(tracking)
-                    .foregroundStyle(.white.opacity(0.5 * breathe))
-                    .blur(radius: 12 + CGFloat(breathe) * 8)
-
-                // White base text — nearly invisible against light bg,
-                // only readable through the chromatic glow around it
-                Text("BLENT")
-                    .font(baseFont)
-                    .tracking(tracking)
-                    .foregroundStyle(.white)
+                // Main droplet — iridescent fill
+                Teardrop()
+                    .fill(
+                        AngularGradient(
+                            colors: [
+                                Color(hex: 0xFF5E6C),
+                                Color(hex: 0xFFAA5C),
+                                Color(hex: 0xF0E050),
+                                Color(hex: 0x50E080),
+                                Color(hex: 0x40D0C0),
+                                Color(hex: 0x60B0F0),
+                                Color(hex: 0xA080E0),
+                                Color(hex: 0xFF5E6C),
+                            ],
+                            center: .center,
+                            startAngle: hueShift,
+                            endAngle: hueShift + .degrees(360)
+                        )
+                    )
+                    .frame(width: dropSize, height: dropSize * 1.25)
+                    .overlay(
+                        // White specular highlight — upper left
+                        Teardrop()
+                            .fill(
+                                RadialGradient(
+                                    colors: [.white.opacity(0.7), .white.opacity(0.0)],
+                                    center: .init(x: 0.35, y: 0.3),
+                                    startRadius: 0,
+                                    endRadius: dropSize * 0.6
+                                )
+                            )
+                    )
+                    .clipShape(Teardrop())
             }
         }
         .frame(maxWidth: .infinity)
-    }
-
-    private func glowLayer(color: Color, opacity: Double,
-                           blur: Double, offset: CGSize) -> some View {
-        Text("BLENT")
-            .font(baseFont)
-            .tracking(tracking)
-            .foregroundStyle(color.opacity(opacity))
-            .blur(radius: blur)
-            .offset(offset)
-    }
-
-    private func channelOffset(angle: Double, spread: CGFloat) -> CGSize {
-        CGSize(width: cos(angle) * spread, height: sin(angle) * spread * 0.6)
     }
 }

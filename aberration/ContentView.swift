@@ -23,7 +23,7 @@ struct PrismGameView: View {
                 Color(hex: 0xF5F5F7)
                     .ignoresSafeArea()
 
-                TunnelBackground(depth: game.tunnelDepth, pulseID: game.tunnelDepth)
+                TunnelBackground(depth: game.tunnelDepth, pulseID: game.tunnelDepth, tapPulseID: game.tapPulseID)
 
                 VStack(spacing: 16) {
                     // Title + Settings — ZStack so BLENT is truly centered
@@ -401,13 +401,12 @@ struct PrismGameView: View {
             }
             .padding(.top, 4)
 
-            if game.roundCompleteCanDismiss {
-                Text("Tap to continue")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color(hex: 0xAAAAAA))
-                    .padding(.top, 8)
-                    .transition(.opacity)
-            }
+            Text("Tap to continue")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color(hex: 0xAAAAAA))
+                .padding(.top, 8)
+                .opacity(game.roundCompleteCanDismiss ? 1 : 0)
+                .animation(.easeIn(duration: 0.2), value: game.roundCompleteCanDismiss)
         }
         .padding(.horizontal, 40)
         .padding(.vertical, 28)
@@ -473,13 +472,12 @@ struct PrismGameView: View {
                     .tracking(2)
             }
 
-            if game.roundCompleteCanDismiss {
-                Text("Tap to continue")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color(hex: 0xAAAAAA))
-                    .padding(.top, 8)
-                    .transition(.opacity)
-            }
+            Text("Tap to continue")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color(hex: 0xAAAAAA))
+                .padding(.top, 8)
+                .opacity(game.roundCompleteCanDismiss ? 1 : 0)
+                .animation(.easeIn(duration: 0.2), value: game.roundCompleteCanDismiss)
         }
         .padding(.horizontal, 40)
         .padding(.vertical, 28)
@@ -587,20 +585,12 @@ struct PrismGameView: View {
             VStack(spacing: 40) {
                 Spacer()
 
-                VStack(spacing: 12) {
-                    ChromaHeader(fontSize: 52, tracking: 10)
+                VStack(spacing: 16) {
+                    ChromaHeader(fontSize: 52)
 
-                    HStack(spacing: 14) {
-                        glassCircle(color: Color(hex: 0xDF1F1F))
-                        Text("+")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundStyle(Color(hex: 0xCCCCCC))
-                        glassCircle(color: Color(hex: 0x1F4FDF))
-                        Text("=")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundStyle(Color(hex: 0xCCCCCC))
-                        glassCircle(color: Color(hex: 0xAF1FDF))
-                    }
+                    Text("Blent")
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color(hex: 0x3A3A4A))
                 }
 
                 VStack(spacing: 8) {

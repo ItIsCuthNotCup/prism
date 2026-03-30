@@ -25,6 +25,8 @@ class GameState {
     // MARK: - Tunnel Background
     /// Increments each time a round completes — drives the tunnel intensity
     var tunnelDepth: Int = 0
+    /// Increments on every tile tap — drives a subtle inward pulse
+    var tapPulseID: Int = 0
 
     // MARK: - Near-Miss Stats (for game over screen)
 
@@ -204,6 +206,8 @@ class GameState {
             return
         }
 
+        tapPulseID += 1
+
         if showMergeHint {
             hintPositions = []
             showMergeHint = false
@@ -244,6 +248,8 @@ class GameState {
         Task {
             try? await Task.sleep(for: .milliseconds(80))
 
+            let involvedPoison = poisonPositions.contains(posA) || poisonPositions.contains(posB)
+
             HapticManager.blend()
             SoundManager.shared.playBlendTone(for: result)
 
@@ -253,6 +259,19 @@ class GameState {
             poisonPositions.remove(posB)
             blendingPositions = nil
             lastBlendPosition = posA
+
+            if involvedPoison {
+                // Poison penalty: lose points, no blend credit
+                let penalty = min(score, 50)
+                score -= penalty
+                HapticManager.gameOver()  // strong warning buzz
+                try? await Task.sleep(for: .milliseconds(120))
+                lastBlendPosition = nil
+                checkGameOver()
+                isProcessing = false
+                return
+            }
+
             score += 10
             blendsThisTarget += 1
             totalBlendsThisGame += 1
@@ -507,28 +526,46 @@ class GameState {
     private func spawnConnectedCluster(tiles: [PrismColor]) -> [GridPosition] {
         guard !tiles.isEmpty else { return [] }
         let empty = emptyPositions()
-        guard let start = empty.randomElement() else { return [] }
+        guard !empty.isEmpty else { return [] }
+
+        // When board is crowded (≤ tiles.count + 2 empty slots),
+        // scatter randomly so placement isn't obviously "the answer"
+        let scatter = empty.count <= tiles.count + 2
 
         var placed: [GridPosition] = []
-        grid[start.row][start.col] = tiles[0]
-        placed.append(start)
 
-        for i in 1..<tiles.count {
-            var candidates: [GridPosition] = []
-            for p in placed {
-                for adj in adjacentPositions(to: p) {
-                    if isEmpty(at: adj) && !candidates.contains(adj) {
-                        candidates.append(adj)
-                    }
-                }
-            }
-
-            if let pos = candidates.randomElement() {
+        if scatter {
+            // Scatter mode: pick random empty positions, spread apart
+            var available = empty.shuffled()
+            for i in 0..<tiles.count {
+                guard !available.isEmpty else { break }
+                let pos = available.removeFirst()
                 grid[pos.row][pos.col] = tiles[i]
                 placed.append(pos)
-            } else if let fallback = emptyPositions().randomElement() {
-                grid[fallback.row][fallback.col] = tiles[i]
-                placed.append(fallback)
+            }
+        } else {
+            // Cluster mode: group tiles near each other (original behavior)
+            guard let start = empty.randomElement() else { return [] }
+            grid[start.row][start.col] = tiles[0]
+            placed.append(start)
+
+            for i in 1..<tiles.count {
+                var candidates: [GridPosition] = []
+                for p in placed {
+                    for adj in adjacentPositions(to: p) {
+                        if isEmpty(at: adj) && !candidates.contains(adj) {
+                            candidates.append(adj)
+                        }
+                    }
+                }
+
+                if let pos = candidates.randomElement() {
+                    grid[pos.row][pos.col] = tiles[i]
+                    placed.append(pos)
+                } else if let fallback = emptyPositions().randomElement() {
+                    grid[fallback.row][fallback.col] = tiles[i]
+                    placed.append(fallback)
+                }
             }
         }
         return placed
