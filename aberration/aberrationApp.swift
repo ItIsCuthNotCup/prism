@@ -12,6 +12,9 @@ struct aberrationApp: App {
     var body: some Scene {
         WindowGroup {
             PrismGameView()
+                .onAppear {
+                    MusicManager.shared.startTheme()
+                }
         }
     }
 }

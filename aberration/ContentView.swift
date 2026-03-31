@@ -11,6 +11,7 @@ struct PrismGameView: View {
     @State private var game = GameState()
     @State private var showSettings = false
     @State private var showStartScreen = true
+    @State private var showAchievements = false
 
     var body: some View {
         GeometryReader { geo in
@@ -27,10 +28,10 @@ struct PrismGameView: View {
                 Color(hex: 0xF5F5F7)
                     .ignoresSafeArea()
 
-                TunnelBackground(depth: game.tunnelDepth, pulseID: game.tunnelDepth, tapPulseID: game.tapPulseID)
+                TunnelBackground(depth: game.tunnelDepth, pulseID: game.tunnelDepth, tapPulseID: game.tapPulseID, gameID: game.gameID)
 
                 VStack(spacing: 16) {
-                    // Title + Settings — ZStack so BLENT is truly centered
+                    // Title + Settings + Walking Cat
                     ZStack {
                         ChromaHeader()
 
@@ -169,35 +170,38 @@ struct PrismGameView: View {
                     GridView(game: game, cellSize: cellSize)
 
                     // Bottom buttons (hidden during overlays)
-                    HStack {
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                game.undoLastBlend()
+                    ZStack {
+                        // Undo — left aligned
+                        HStack {
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    game.undoLastBlend()
+                                }
+                            } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "arrow.uturn.backward")
+                                    Text("Undo")
+                                }
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Color(hex: 0x555555))
+                                .padding(.horizontal, 18)
+                                .padding(.vertical, 10)
+                                .background(
+                                    Capsule()
+                                        .fill(.white.opacity(0.8))
+                                        .overlay(
+                                            Capsule()
+                                                .strokeBorder(.white, lineWidth: 0.5)
+                                        )
+                                        .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
+                                )
                             }
-                        } label: {
-                            HStack(spacing: 5) {
-                                Image(systemName: "arrow.uturn.backward")
-                                Text("Undo")
-                            }
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Color(hex: 0x555555))
-                            .padding(.horizontal, 18)
-                            .padding(.vertical, 10)
-                            .background(
-                                Capsule()
-                                    .fill(.white.opacity(0.8))
-                                    .overlay(
-                                        Capsule()
-                                            .strokeBorder(.white, lineWidth: 0.5)
-                                    )
-                                    .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
-                            )
+                            .opacity(game.canUndo ? 1 : 0)
+                            .allowsHitTesting(game.canUndo)
+                            Spacer()
                         }
-                        .opacity(game.canUndo ? 1 : 0)
-                        .allowsHitTesting(game.canUndo)
 
-                        Spacer()
-
+                        // New Game — always centered
                         Button {
                             withAnimation(.easeInOut(duration: 0.3)) {
                                 game.newGame()
@@ -205,12 +209,17 @@ struct PrismGameView: View {
                         } label: {
                             Text("New Game")
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(Color(hex: 0xAAAAAA))
+                                .foregroundStyle(Color(hex: 0x555555))
                                 .padding(.horizontal, 18)
                                 .padding(.vertical, 10)
                                 .background(
                                     Capsule()
-                                        .strokeBorder(Color(hex: 0xDDDDDD), lineWidth: 1)
+                                        .fill(.white.opacity(0.8))
+                                        .overlay(
+                                            Capsule()
+                                                .strokeBorder(.white, lineWidth: 0.5)
+                                        )
+                                        .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
                                 )
                         }
                     }
@@ -257,12 +266,31 @@ struct PrismGameView: View {
                 if game.showPoisonIntro {
                     poisonIntroOverlay
                 }
+
+                // Achievement toast (top-right corner)
+                if let toast = game.achievementToast {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            achievementToastView(toast)
+                                .transition(.move(edge: .trailing).combined(with: .opacity))
+                        }
+                        .padding(.top, 60)
+                        .padding(.trailing, 12)
+                        Spacer()
+                    }
+                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: game.achievementToast?.id)
+                    .allowsHitTesting(false)
+                }
             }
         }
         .background(Color(hex: 0xF5F5F7))
         .preferredColorScheme(.light)
         .sheet(isPresented: $showSettings) {
             settingsView
+        }
+        .sheet(isPresented: $showAchievements) {
+            AchievementsView()
         }
         .fullScreenCover(isPresented: $showStartScreen) {
             startScreenView
@@ -490,6 +518,73 @@ struct PrismGameView: View {
         .background(glassCard(cornerRadius: 24))
     }
 
+    // MARK: - Achievement Unlock Row (legacy — kept for reference)
+
+    private var achievementUnlockRow: some View {
+        VStack(spacing: 8) {
+            Text("Achievement Unlocked!")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(Color(hex: 0xF59E0B))
+                .tracking(2)
+
+            HStack(spacing: 10) {
+                ForEach(game.recentlyUnlockedAchievements) { achievement in
+                    VStack(spacing: 4) {
+                        Image(achievement.imageName)
+                            .resizable()
+                            .interpolation(.none)
+                            .scaledToFill()
+                            .frame(width: 48, height: 48)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
+
+                        Text(achievement.name)
+                            .font(.system(size: 8, weight: .semibold))
+                            .foregroundStyle(Color(hex: 0x888888))
+                            .lineLimit(1)
+                    }
+                }
+            }
+        }
+        .padding(.top, 8)
+    }
+
+    // MARK: - Achievement Toast (Top-Right Corner)
+
+    private func achievementToastView(_ achievement: StatsManager.Achievement) -> some View {
+        HStack(spacing: 10) {
+            Image(achievement.imageName)
+                .resizable()
+                .interpolation(.none)
+                .scaledToFill()
+                .frame(width: 44, height: 44)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Achievement!")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(Color(hex: 0xF59E0B))
+                    .tracking(1)
+
+                Text(achievement.name)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Color(hex: 0x2A2A3A))
+                    .lineLimit(1)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(.white.opacity(0.95))
+                .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(Color(hex: 0xF59E0B).opacity(0.3), lineWidth: 1)
+        )
+    }
+
     // MARK: - Poison Intro Overlay
 
     private var poisonIntroOverlay: some View {
@@ -566,6 +661,28 @@ struct PrismGameView: View {
                     set: { game.showColorLabels = $0 }
                 ))
                 .tint(Color(hex: 0x2A9D8F))
+
+                Button {
+                    showSettings = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        showAchievements = true
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "trophy.fill")
+                            .foregroundStyle(Color(hex: 0xF59E0B))
+                        Text("Achievements")
+                            .foregroundStyle(Color(hex: 0x2A2A3A))
+                        Spacer()
+                        let count = StatsManager.shared.unlockedBadges.count
+                        Text("\(count)/25")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(Color(hex: 0xAAAAAA))
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color(hex: 0xCCCCCC))
+                    }
+                }
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
@@ -594,28 +711,24 @@ struct PrismGameView: View {
                 VStack(spacing: 16) {
                     ChromaHeader(fontSize: 52)
 
-                    Text("Chromatose")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color(hex: 0x3A3A4A))
+                    Text("CHROMATOSE")
+                        .font(.system(size: 32, weight: .heavy))
+                        .foregroundStyle(Color(hex: 0x2A2A2A))
+                        .tracking(2)
                 }
 
-                VStack(spacing: 8) {
-                    Text("Blend colors to match the target.")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(Color(hex: 0x888888))
-
-                    Text("Keep the board clear — or it's game over.")
-                        .font(.system(size: 14, weight: .regular))
-                        .foregroundStyle(Color(hex: 0xBBBBBB))
-                }
+                Text("Blend colors to match the target.")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(Color(hex: 0x888888))
 
                 CatMascotView()
+                    .frame(maxWidth: .infinity)
                     .frame(height: 120)
-                    .padding(.horizontal, 40)
 
                 Spacer()
 
                 Button {
+                    MusicManager.shared.setGameplayVolume()
                     showStartScreen = false
                 } label: {
                     Text("Play")
@@ -640,6 +753,10 @@ struct PrismGameView: View {
             }
         }
         .preferredColorScheme(.light)
+        .onAppear {
+            MusicManager.shared.setMenuVolume()
+            MusicManager.shared.startTheme()
+        }
     }
 
     private func glassCircle(color: Color) -> some View {

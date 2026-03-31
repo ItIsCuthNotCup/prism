@@ -12,6 +12,9 @@ struct GameOverOverlay: View {
     let totalBlends: Int
     let onPlayAgain: () -> Void
 
+    @State private var showShareSheet = false
+    @State private var showAchievements = false
+
     private var isNewHighScore: Bool { score >= highScore && score > 0 }
     private var isNewBestRound: Bool { round >= bestRound && round > 1 }
 
@@ -139,24 +142,55 @@ struct GameOverOverlay: View {
                     .padding(.bottom, 20)
                 }
 
-                // Play Again button
-                Button(action: onPlayAgain) {
-                    Text("Play Again")
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(
-                            Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color(hex: 0x457B9D), Color(hex: 0x2A9D8F)],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
+                // Buttons
+                HStack(spacing: 12) {
+                    // Share button
+                    Button {
+                        showShareSheet = true
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundStyle(Color(hex: 0x457B9D))
+                            .frame(width: 50, height: 48)
+                            .background(
+                                Capsule()
+                                    .fill(Color(hex: 0x457B9D).opacity(0.1))
+                            )
+                    }
+
+                    // Achievements button
+                    Button {
+                        showAchievements = true
+                    } label: {
+                        Image(systemName: "trophy.fill")
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundStyle(Color(hex: 0xF59E0B))
+                            .frame(width: 50, height: 48)
+                            .background(
+                                Capsule()
+                                    .fill(Color(hex: 0xF59E0B).opacity(0.1))
+                            )
+                    }
+
+                    // Play Again button
+                    Button(action: onPlayAgain) {
+                        Text("Play Again")
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(
+                                Capsule()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [Color(hex: 0x457B9D), Color(hex: 0x2A9D8F)],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
                                     )
-                                )
-                                .shadow(color: Color(hex: 0x457B9D).opacity(0.3), radius: 12, y: 4)
-                        )
+                                    .shadow(color: Color(hex: 0x457B9D).opacity(0.3), radius: 12, y: 4)
+                            )
+                    }
                 }
                 .padding(.horizontal, 24)
             }
@@ -176,6 +210,18 @@ struct GameOverOverlay: View {
             .padding(.horizontal, 28)
         }
         .transition(.opacity)
+        .sheet(isPresented: $showAchievements) {
+            AchievementsView()
+        }
+        .sheet(isPresented: $showShareSheet) {
+            ShareSheet(image: ShareImageRenderer.render(
+                score: score,
+                round: round,
+                highScore: highScore,
+                totalBlends: totalBlends,
+                isNewRecord: isNewHighScore
+            ))
+        }
     }
 
     private func miniStat(label: String, value: String) -> some View {

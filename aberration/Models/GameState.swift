@@ -30,6 +30,8 @@ class GameState {
     var tunnelDepth: Int = 0
     /// Increments on every tile tap — drives a subtle inward pulse
     var tapPulseID: Int = 0
+    /// Increments each new game — triggers background pattern re-roll
+    var gameID: Int = 0
 
     // MARK: - Near-Miss Stats (for game over screen)
 
@@ -100,6 +102,65 @@ class GameState {
     var poisonTileCount: Int {
         if round <= 10 { return 0 }
         return 1 + (round - 11) / 5
+    }
+
+    // MARK: - Achievement Unlock Tracking
+
+    /// Achievements unlocked during the current round/game-over — shown on the overlay card
+    var recentlyUnlockedAchievements: [StatsManager.Achievement] = []
+
+    /// Toast queue: achievement currently being shown as a floating toast (top-right corner)
+    var achievementToast: StatsManager.Achievement? = nil
+
+    // MARK: - Near-Miss Proximity Feedback
+
+    enum ProximityHint: Equatable {
+        case hot       // 1 step away
+        case warm      // 2 steps away
+        case close     // 3–4 steps away
+
+        var label: String {
+            switch self {
+            case .hot:   return "So close!"
+            case .warm:  return "Getting warm..."
+            case .close: return "On the right track"
+            }
+        }
+    }
+    /// Set briefly after each blend to show how close the result is to the target
+    var proximityHint: ProximityHint? = nil
+    /// Position where the hint should appear (the blend result tile)
+    var proximityHintPosition: GridPosition? = nil
+
+    /// Snapshot badges before a stats event, then diff after to find new unlocks
+    private func captureNewAchievements(around action: () -> Void) {
+        let before = StatsManager.shared.unlockedBadges
+        action()
+        let after = StatsManager.shared.unlockedBadges
+        let newIDs = after.subtracting(before)
+        if !newIDs.isEmpty {
+            let newOnes = StatsManager.allAchievements.filter { newIDs.contains($0.id) }
+            recentlyUnlockedAchievements.append(contentsOf: newOnes)
+            // Show toast + meow for first new achievement
+            showAchievementToasts(newOnes)
+        }
+    }
+
+    /// Show each unlocked achievement as a sequential toast with meow
+    private func showAchievementToasts(_ achievements: [StatsManager.Achievement]) {
+        Task {
+            for achievement in achievements {
+                achievementToast = achievement
+                SoundManager.shared.playMeow()
+                HapticManager.tilePlaced()
+                try? await Task.sleep(for: .milliseconds(1500))
+                achievementToast = nil
+                // Brief gap between multiple toasts
+                if achievements.count > 1 {
+                    try? await Task.sleep(for: .milliseconds(200))
+                }
+            }
+        }
     }
 
     // MARK: - Combo / Par System
@@ -218,6 +279,9 @@ class GameState {
             if round > bestRound { bestRound = round }
             updateHighScore()
             isGameOver = true
+            captureNewAchievements {
+                StatsManager.shared.recordGameOver(round: round, blends: totalBlendsThisGame, score: score, diedToPoison: true)
+            }
             HapticManager.gameOver()
             SoundManager.shared.playGameOver()
             return
@@ -306,6 +370,15 @@ class GameState {
                 lastBlendPosition = nil
 
                 if !pendingTargets.isEmpty {
+                    // Record stats for sub-target completion
+                    captureNewAchievements {
+                        StatsManager.shared.recordRoundComplete(
+                            colorName: target.name,
+                            blendsUsed: blendsThisTarget,
+                            par: parForCurrentTarget,
+                            isMultiTarget: true
+                        )
+                    }
                     // Multi-step: show brief sub-target overlay, then advance
                     if let ct = comboText {
                         comboMessage = ct
@@ -321,6 +394,15 @@ class GameState {
                     isProcessing = false
                 } else {
                     // Final (or only) target — full round complete
+                    // Record stats for the completed target
+                    captureNewAchievements {
+                        StatsManager.shared.recordRoundComplete(
+                            colorName: target.name,
+                            blendsUsed: blendsThisTarget,
+                            par: parForCurrentTarget,
+                            isMultiTarget: totalTargetsThisRound > 1
+                        )
+                    }
                     let completedRound = round
                     let isMilestone = completedRound % 4 == 0 && completedRound > 0
                     if isMilestone {
@@ -354,8 +436,32 @@ class GameState {
                     isProcessing = false
                 }
             } else {
+                // Near-miss proximity feedback
+                if let target = targetColor {
+                    let diff = abs(result.wheelIndex - target.wheelIndex)
+                    let dist = min(diff, 24 - diff)
+                    let hint: ProximityHint? = switch dist {
+                        case 1:    .hot
+                        case 2:    .warm
+                        case 3...4: .close
+                        default:   nil
+                    }
+                    if let hint {
+                        proximityHint = hint
+                        proximityHintPosition = posA
+                    }
+                }
+
                 try? await Task.sleep(for: .milliseconds(120))
                 lastBlendPosition = nil
+
+                // Clear proximity hint after a beat
+                if proximityHint != nil {
+                    try? await Task.sleep(for: .milliseconds(900))
+                    proximityHint = nil
+                    proximityHintPosition = nil
+                }
+
                 checkGameOver()
                 isProcessing = false
             }
@@ -369,6 +475,7 @@ class GameState {
         showRoundComplete = false
         showMilestone = false
         comboMessage = nil
+        recentlyUnlockedAchievements = []
         isProcessing = false
         startNewRound()
     }
@@ -402,6 +509,7 @@ class GameState {
         undoGrid = nil
         undoScore = nil
         undoUsedThisRound = true
+        StatsManager.shared.recordUndo()
         lastBlendPosition = nil
         selectedPosition = nil
         if blendsThisTarget > 0 { blendsThisTarget -= 1 }
@@ -447,30 +555,10 @@ class GameState {
         targetColor = targets[0]
         pendingTargets = Array(targets.dropFirst())
 
-        // Clear some random tiles to create breathing room & prevent same-spot loops.
-        // After round 3, remove a few random non-poison tiles each round.
-        // This ensures new ingredients never land in the same spot as the last blend.
-        if round > 3 {
-            let empty = emptyPositions()
-            let occupiedCount = gridSize * gridSize - empty.count
-            // Remove 2-4 tiles depending on how full the board is
-            let clearCount = occupiedCount > 18 ? 4 : (occupiedCount > 12 ? 3 : 2)
-            var removable: [GridPosition] = []
-            for r in 0..<gridSize {
-                for c in 0..<gridSize {
-                    let pos = GridPosition(row: r, col: c)
-                    if grid[r][c] != nil && !poisonPositions.contains(pos) {
-                        removable.append(pos)
-                    }
-                }
-            }
-            // Prefer removing tiles that are NOT recently emptied (spread the clearing around)
-            let preferred = removable.filter { !recentlyEmptiedPositions.contains($0) }
-            let pool = preferred.isEmpty ? removable : preferred
-            for pos in pool.shuffled().prefix(clearCount) {
-                grid[pos.row][pos.col] = nil
-            }
-        }
+        // Reset the board every round — fresh slate prevents tile buildup
+        // and same-spot clustering from previous rounds
+        grid = Array(repeating: Array(repeating: nil, count: gridSize), count: gridSize)
+        recentlyEmptiedPositions = []
 
         // Spawn ingredients for first target
         if !spawnIngredientsForCurrentTarget() { return }
@@ -524,6 +612,9 @@ class GameState {
             if round > bestRound { bestRound = round }
             updateHighScore()
             isGameOver = true
+            captureNewAchievements {
+                StatsManager.shared.recordGameOver(round: round, blends: totalBlendsThisGame, score: score, diedToPoison: false)
+            }
             HapticManager.gameOver()
             SoundManager.shared.playGameOver()
             return false
@@ -611,6 +702,9 @@ class GameState {
             if round > bestRound { bestRound = round }
             updateHighScore()
             isGameOver = true
+            captureNewAchievements {
+                StatsManager.shared.recordGameOver(round: round, blends: totalBlendsThisGame, score: score, diedToPoison: false)
+            }
             HapticManager.gameOver()
             SoundManager.shared.playGameOver()
         }
@@ -746,8 +840,11 @@ class GameState {
         showPoisonIntro = false
         poisonPositions = []
         recentlyEmptiedPositions = []
+        recentlyUnlockedAchievements = []
+        achievementToast = nil
         roundCompleteCanDismiss = false
         tunnelDepth = 0
+        gameID += 1
         totalBlendsThisGame = 0
         totalRoundsCompletedThisGame = 0
         nearMissBlendCount = 0
