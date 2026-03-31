@@ -12,6 +12,7 @@ struct PrismGameView: View {
     @State private var showSettings = false
     @State private var showStartScreen = true
     @State private var showAchievements = false
+    @State private var showNewGameConfirm = false
 
     var body: some View {
         GeometryReader { geo in
@@ -28,9 +29,9 @@ struct PrismGameView: View {
                 Color(hex: 0xF5F5F7)
                     .ignoresSafeArea()
 
-                TunnelBackground(depth: game.tunnelDepth, pulseID: game.tunnelDepth, tapPulseID: game.tapPulseID, gameID: game.gameID)
+                TunnelBackground(depth: game.tunnelDepth, pulseID: game.tunnelDepth, tapPulseID: game.tapPulseID, gameID: game.gameID, frenzy: game.isBackgroundFrenzy)
 
-                VStack(spacing: 16) {
+                VStack(spacing: 12) {
                     // Title + Settings + Walking Cat
                     ZStack {
                         ChromaHeader()
@@ -47,6 +48,8 @@ struct PrismGameView: View {
                         }
                     }
 
+                  // ── Top container: stats + target ──
+                  VStack(spacing: 8) {
                     // Stats bar
                     HStack(spacing: 0) {
                         statBlock(label: "ROUND", value: "\(game.round)")
@@ -58,8 +61,7 @@ struct PrismGameView: View {
                         statBlock(label: "BEST", value: "\(game.highScore)", accent: true)
                     }
                     .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                    .background(glassCard(cornerRadius: 16))
+                    .padding(.vertical, 10)
 
                     // Target color + progress + blend preview
                     if let target = game.targetColor {
@@ -159,15 +161,24 @@ struct PrismGameView: View {
                             .animation(.easeInOut(duration: 0.15), value: game.selectedPosition)
                         }
                         .padding(.horizontal, 20)
-                        .padding(.vertical, 12)
-                        .background(glassCard(cornerRadius: 16))
+                        .padding(.vertical, 8)
                         .id(target.wheelIndex)
                         .transition(.scale.combined(with: .opacity))
                         .animation(.spring(response: 0.4), value: target.wheelIndex)
                     }
+                    // Timer bar (round 15+)
+                    if game.hasTimer && game.timerLimit > 0 {
+                        timerBar
+                    }
+                  } // end top container
+                  .padding(.horizontal, 10)
+                  .padding(.vertical, 8)
+                  .background(glassCard(cornerRadius: 20))
 
                     Spacer(minLength: 0)
 
+                  // ── Bottom container: grid + buttons ──
+                  VStack(spacing: 0) {
                     // Grid
                     GridView(game: game, cellSize: cellSize)
 
@@ -203,10 +214,14 @@ struct PrismGameView: View {
                             Spacer()
                         }
 
-                        // New Game — always centered
+                        // New Game — always centered, with confirmation guard
                         Button {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                game.newGame()
+                            if game.round > 1 && !game.isGameOver {
+                                showNewGameConfirm = true
+                            } else {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    game.newGame()
+                                }
                             }
                         } label: {
                             Text("New Game")
@@ -226,9 +241,13 @@ struct PrismGameView: View {
                         }
                     }
                     .padding(.top, 4)
-                    .padding(.bottom, 8)
+                    .padding(.bottom, 6)
                     .opacity(game.showRoundComplete || game.isGameOver || game.showSubTargetComplete || game.showPoisonIntro ? 0 : 1)
                     .animation(.easeInOut(duration: 0.2), value: game.canUndo)
+                  } // end bottom container
+                  .padding(.horizontal, 10)
+                  .padding(.vertical, 8)
+                  .background(glassCard(cornerRadius: 20))
                 }
                 .padding(.horizontal, contentPadding)
                 .padding(.top, 8)
@@ -303,6 +322,16 @@ struct PrismGameView: View {
         .fullScreenCover(isPresented: $showStartScreen) {
             startScreenView
         }
+        .alert("Start New Game?", isPresented: $showNewGameConfirm) {
+            Button("Cancel", role: .cancel) { }
+            Button("New Game", role: .destructive) {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    game.newGame()
+                }
+            }
+        } message: {
+            Text("Your current progress will be lost.")
+        }
     }
 
     // MARK: - Glass Card Background
@@ -354,6 +383,35 @@ struct PrismGameView: View {
                 .contentTransition(.numericText())
                 .animation(.spring(response: 0.3), value: value)
         }
+    }
+
+    // MARK: - Timer Bar
+
+    private var timerBar: some View {
+        let fraction = game.timerLimit > 0 ? game.timeRemaining / game.timerLimit : 0
+        let color: Color = fraction > 0.4 ? Color(hex: 0x2A9D8F) :
+                           fraction > 0.2 ? Color(hex: 0xF59E0B) :
+                           Color(hex: 0xE63946)
+        return VStack(spacing: 2) {
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color(hex: 0xEEEEEE))
+                    Capsule()
+                        .fill(color)
+                        .frame(width: geo.size.width * max(0, fraction))
+                        .animation(.linear(duration: 0.1), value: game.timeRemaining)
+                }
+            }
+            .frame(height: 5)
+            .padding(.horizontal, 8)
+
+            Text("\(Int(ceil(game.timeRemaining)))s")
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundStyle(color)
+                .monospacedDigit()
+        }
+        .padding(.top, 4)
     }
 
     // MARK: - Lives Display

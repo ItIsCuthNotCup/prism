@@ -27,7 +27,6 @@ struct GridView: View {
             }
         }
         .padding(inset)
-        .background(glassContainer)
     }
 
     // MARK: - Glass Container

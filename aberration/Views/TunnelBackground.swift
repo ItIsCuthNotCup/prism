@@ -5,6 +5,7 @@
 //  Procedurally generated background — every session paints a
 //  unique pattern from a random seed. Shapes, palettes, motion
 //  styles, and layouts are all selected at init time.
+//  Always-on ambient animation with frenzy intensification.
 //
 
 import SwiftUI
@@ -16,6 +17,7 @@ private struct WorldSeed {
     let shape: ShapeKind
     let palette: [(r: Double, g: Double, b: Double)]
     let motionStyle: MotionStyle
+    let ambientEffect: AmbientEffect
     let gridSpacing: CGFloat
     let baseAngleOffset: CGFloat
     let rotationSpeed: CGFloat     // how fast sub-shapes orbit
@@ -34,11 +36,21 @@ private struct WorldSeed {
         case bloom        // all push outward from center of screen
     }
 
+    /// Ambient background animation — always active, intensified during frenzy
+    enum AmbientEffect: CaseIterable {
+        case breathe      // slow zoom pulse on grid spacing
+        case flow         // sine wave drift of all points
+        case ripple       // concentric ring displacement from center
+        case twist        // rotational displacement based on distance from center
+        case drift        // all points slowly migrate in one direction
+    }
+
     /// Build a fresh random world
     static func random() -> WorldSeed {
         let shape = ShapeKind.allCases.randomElement()!
         let palette = randomPalette()
         let motion = MotionStyle.allCases.randomElement()!
+        let ambient = AmbientEffect.allCases.randomElement()!
         let spacing = CGFloat.random(in: 24...34)
         let angleOff = CGFloat.random(in: 0 ... .pi * 2)
         let rotSpeed = CGFloat.random(in: 0.08...0.35)
@@ -46,7 +58,8 @@ private struct WorldSeed {
         let wAmp = CGFloat.random(in: 0.5...2.0)
         let wFreq = CGFloat.random(in: 0.04...0.12)
         return WorldSeed(shape: shape, palette: palette,
-                         motionStyle: motion, gridSpacing: spacing,
+                         motionStyle: motion, ambientEffect: ambient,
+                         gridSpacing: spacing,
                          baseAngleOffset: angleOff,
                          rotationSpeed: rotSpeed,
                          waveAmplitude: wAmp, waveFrequency: wFreq)
@@ -195,56 +208,70 @@ struct TunnelBackground: View {
     var pulseID: Int
     var tapPulseID: Int = 0
     var gameID: Int = 0
+    var frenzy: Bool = false
 
     @State private var roundPulse: CGFloat = 0
     @State private var tapPulse: CGFloat = 0
     @State private var seed = WorldSeed.random()
 
     var body: some View {
-        Canvas { context, size in
-            let d = CGFloat(depth)
-            let spacing = seed.gridSpacing
+        // Always animate: 6 fps ambient, 10 fps during frenzy
+        TimelineView(.animation(minimumInterval: frenzy ? 1.0 / 10 : 1.0 / 6, paused: false)) { timeline in
+            let t = CGFloat(timeline.date.timeIntervalSinceReferenceDate)
 
-            // Grey base: fades out as colour emerges
-            let greyAlpha = max(0.0, 0.22 - d * 0.018)
-            let greyRadius: CGFloat = 2.8
+            Canvas { context, size in
+                let d = CGFloat(depth)
+                let baseSpacing = seed.gridSpacing
 
-            // Colour: fades in
-            let colorAlpha = min(d * 0.04, 0.65)
-            let separation = d * 1.4 + roundPulse * 4 + tapPulse * 2
-            let colorRadius = 2.0 + d * 0.35 + roundPulse * 1.5
+                // Ambient effect modifies spacing for breathe effect
+                let spacing = ambientSpacing(base: baseSpacing, t: t, frenzy: frenzy)
 
-            let cx = size.width / 2
-            let cy = size.height / 2
+                // Grey base: fades out as colour emerges
+                let greyAlpha = max(0.0, 0.22 - d * 0.018)
+                let greyRadius: CGFloat = 2.8
 
-            for gx in stride(from: spacing * 0.5, to: size.width, by: spacing) {
-                for gy in stride(from: spacing * 0.5, to: size.height, by: spacing) {
+                // Colour: fades in
+                let colorAlpha = min(d * 0.04, 0.65)
+                let separation = d * 1.4 + roundPulse * 4 + tapPulse * 2
+                let colorRadius = 2.0 + d * 0.35 + roundPulse * 1.5
 
-                    // -- Grey base dot --
-                    if greyAlpha > 0.01 {
-                        let rect = CGRect(x: gx - greyRadius, y: gy - greyRadius,
-                                          width: greyRadius * 2, height: greyRadius * 2)
-                        context.fill(Path(ellipseIn: rect),
-                                     with: .color(Color(white: 0.35, opacity: greyAlpha)))
-                    }
+                let cx = size.width / 2
+                let cy = size.height / 2
 
-                    // -- Coloured sub-shapes --
-                    if colorAlpha > 0.01 {
-                        for (i, pal) in seed.palette.enumerated() {
-                            let baseAngle = seed.baseAngleOffset
-                                + CGFloat(i) * .pi * 2 / CGFloat(seed.palette.count)
+                for gx in stride(from: spacing * 0.5, to: size.width + spacing, by: spacing) {
+                    for gy in stride(from: spacing * 0.5, to: size.height + spacing, by: spacing) {
 
-                            let (sx, sy) = subShapePosition(
-                                gx: gx, gy: gy, cx: cx, cy: cy,
-                                index: i, baseAngle: baseAngle,
-                                separation: separation, depth: d)
+                        // Always-on ambient displacement
+                        let (rgx, rgy) = ambientDisplace(
+                            gx: gx, gy: gy, cx: cx, cy: cy,
+                            t: t, frenzy: frenzy, size: size)
 
-                            let color = Color(.sRGB, red: pal.r, green: pal.g,
-                                              blue: pal.b, opacity: colorAlpha)
+                        // -- Grey base dot --
+                        if greyAlpha > 0.01 {
+                            let rect = CGRect(x: rgx - greyRadius, y: rgy - greyRadius,
+                                              width: greyRadius * 2, height: greyRadius * 2)
+                            context.fill(Path(ellipseIn: rect),
+                                         with: .color(Color(white: 0.35, opacity: greyAlpha)))
+                        }
 
-                            drawShape(seed.shape, in: &context,
-                                      at: CGPoint(x: sx, y: sy),
-                                      radius: colorRadius, color: color)
+                        // -- Coloured sub-shapes --
+                        if colorAlpha > 0.01 {
+                            for (i, pal) in seed.palette.enumerated() {
+                                let baseAngle = seed.baseAngleOffset
+                                    + CGFloat(i) * .pi * 2 / CGFloat(seed.palette.count)
+
+                                let (sx, sy) = subShapePosition(
+                                    gx: rgx, gy: rgy, cx: cx, cy: cy,
+                                    index: i, baseAngle: baseAngle,
+                                    separation: separation, depth: d)
+
+                                let color = Color(.sRGB, red: pal.r, green: pal.g,
+                                                  blue: pal.b, opacity: colorAlpha)
+
+                                drawShape(seed.shape, in: &context,
+                                          at: CGPoint(x: sx, y: sy),
+                                          radius: colorRadius, color: color)
+                            }
                         }
                     }
                 }
@@ -261,6 +288,69 @@ struct TunnelBackground: View {
         }
         .onChange(of: gameID) { _, _ in
             seed = WorldSeed.random()
+        }
+    }
+
+    // MARK: - Ambient Effects
+
+    /// Modify grid spacing for breathing effect
+    private func ambientSpacing(base: CGFloat, t: CGFloat, frenzy: Bool) -> CGFloat {
+        switch seed.ambientEffect {
+        case .breathe:
+            // Slow zoom pulse: ±2px normal, ±4px frenzy
+            let amp: CGFloat = frenzy ? 4.0 : 2.0
+            let speed: CGFloat = frenzy ? 0.2 : 0.1
+            return base + sin(t * speed) * amp
+        default:
+            return base
+        }
+    }
+
+    /// Displace a grid point based on the ambient effect
+    private func ambientDisplace(gx: CGFloat, gy: CGFloat,
+                                  cx: CGFloat, cy: CGFloat,
+                                  t: CGFloat, frenzy: Bool,
+                                  size: CGSize) -> (CGFloat, CGFloat) {
+        // Big displacement so it's visible, ~70% of the "too fast" speed
+        let intensity: CGFloat = frenzy ? 2.5 : 1.0
+
+        switch seed.ambientEffect {
+        case .breathe:
+            return (gx, gy)
+
+        case .flow:
+            let wx = sin(gy * 0.018 + t * 0.16) * 3.5 * intensity
+            let wy = cos(gx * 0.015 + t * 0.13) * 2.8 * intensity
+            return (gx + wx, gy + wy)
+
+        case .ripple:
+            let dx = gx - cx
+            let dy = gy - cy
+            let dist = sqrt(dx * dx + dy * dy)
+            let wave = sin(dist * 0.04 - t * 0.14) * 3.0 * intensity
+            let normX = dist > 1 ? dx / dist : 0
+            let normY = dist > 1 ? dy / dist : 0
+            return (gx + normX * wave, gy + normY * wave)
+
+        case .twist:
+            let dx = gx - cx
+            let dy = gy - cy
+            let dist = sqrt(dx * dx + dy * dy)
+            let maxDist = sqrt(cx * cx + cy * cy)
+            let normalizedDist = dist / max(maxDist, 1)
+            let angle = sin(t * 0.08) * 0.04 * intensity * normalizedDist
+            let cosA = cos(angle)
+            let sinA = sin(angle)
+            let rx = cx + (dx * cosA - dy * sinA)
+            let ry = cy + (dx * sinA + dy * cosA)
+            return (rx, ry)
+
+        case .drift:
+            let wx = sin(t * 0.07) * 4.0 * intensity
+            let wy = cos(t * 0.05) * 3.0 * intensity
+            let localX = sin(gy * 0.01 + t * 0.08) * 1.0 * intensity
+            let localY = cos(gx * 0.01 + t * 0.07) * 0.8 * intensity
+            return (gx + wx + localX, gy + wy + localY)
         }
     }
 

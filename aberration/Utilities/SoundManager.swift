@@ -502,9 +502,9 @@ final class SoundManager {
         musicNode.volume = 0.5
     }
 
-    /// In-game: 10% of menu loudness
+    /// In-game: mute music
     func setGameplayVolume() {
-        musicNode.volume = 0.05
+        musicNode.volume = 0.0
     }
 
     var isThemePlaying: Bool {
