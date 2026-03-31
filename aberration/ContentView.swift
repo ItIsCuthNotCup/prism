@@ -56,7 +56,14 @@ struct PrismGameView: View {
                         Spacer()
                         livesDisplay
                         Spacer()
-                        statBlock(label: "SCORE", value: "\(game.score)")
+                        VStack(spacing: 2) {
+                            statBlock(label: "SCORE", value: "\(game.score)")
+                            if game.isMultiplierActive {
+                                Text("×3 (\(game.multiplierRoundsLeft))")
+                                    .font(.system(size: 9, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(Color(hex: 0xFFD700))
+                            }
+                        }
                         Spacer()
                         statBlock(label: "BEST", value: "\(game.highScore)", accent: true)
                     }

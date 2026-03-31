@@ -81,6 +81,7 @@ struct GridView: View {
         }()
         let isHinted = game.hintPositions.contains(pos)
         let isPoison = game.poisonPositions.contains(pos)
+        let isGolden = game.goldenPositions.contains(pos)
         let proximityHint: GameState.ProximityHint? = game.proximityHintPosition == pos ? game.proximityHint : nil
 
         if let tileColor = game.tile(at: pos) {
@@ -101,6 +102,23 @@ struct GridView: View {
                 showLabel: game.showColorLabels,
                 blendPreview: blendPreview
             )
+            .background {
+                if isGolden {
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(Color(hex: 0xFFD700).opacity(0.5))
+                        .blur(radius: 8)
+                        .scaleEffect(1.25)
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                if isGolden {
+                    Text("✦")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color(hex: 0xFFD700))
+                        .shadow(color: Color(hex: 0xFFD700), radius: 3)
+                        .offset(x: 2, y: -2)
+                }
+            }
             .overlay(alignment: .top) {
                 if let hint = proximityHint {
                     proximityBadge(hint)

@@ -140,6 +140,17 @@ class GameState {
     /// Toast queue: achievement currently being shown as a floating toast (top-right corner)
     var achievementToast: StatsManager.Achievement? = nil
 
+    // MARK: - Golden Tiles (3x Score Multiplier)
+
+    /// Positions of golden bonus tiles on the board
+    var goldenPositions: Set<GridPosition> = []
+    /// Rounds remaining with 3x score multiplier (0 = inactive)
+    var multiplierRoundsLeft: Int = 0
+    /// Whether the score multiplier is active
+    var isMultiplierActive: Bool { multiplierRoundsLeft > 0 }
+    /// Current score multiplier
+    var scoreMultiplier: Int { multiplierRoundsLeft > 0 ? 3 : 1 }
+
     // MARK: - Invisible DDA & Breather Rounds
 
     /// Consecutive game-overs without completing a round (persists across newGame)
@@ -400,17 +411,26 @@ class GameState {
             grid[posB.row][posB.col] = nil
             poisonPositions.remove(posA)
             poisonPositions.remove(posB)
+
+            // Check if a golden tile was used — activate 3x multiplier
+            let usedGolden = goldenPositions.contains(posA) || goldenPositions.contains(posB)
+            goldenPositions.remove(posA)
+            goldenPositions.remove(posB)
+            if usedGolden {
+                multiplierRoundsLeft = 3
+            }
+
             blendingPositions = nil
             lastBlendPosition = posA
 
-            score += 10
+            score += 10 * scoreMultiplier
             blendsThisTarget += 1
             totalBlendsThisGame += 1
 
             // Check if result matches current target
             if let target = targetColor, result == target {
                 matchedPosition = posA
-                let roundBonus = round * 50
+                let roundBonus = round * 50 * scoreMultiplier
                 score += roundBonus
 
                 // Track breakdown
@@ -548,12 +568,12 @@ class GameState {
         if parForCurrentTarget <= 0 { return nil }
 
         if blendsThisTarget < parForCurrentTarget {
-            let bonus = 200
+            let bonus = 200 * scoreMultiplier
             score += bonus
             comboBonusTotal += bonus
             return "UNDER PAR! +\(bonus)"
         } else if blendsThisTarget == parForCurrentTarget {
-            let bonus = 100
+            let bonus = 100 * scoreMultiplier
             score += bonus
             comboBonusTotal += bonus
             return "PAR! +\(bonus)"
@@ -593,6 +613,12 @@ class GameState {
         undoUsedThisRound = false
         comboBonusTotal = 0
         comboMessage = nil
+        goldenPositions = []
+
+        // Decrement score multiplier
+        if multiplierRoundsLeft > 0 {
+            multiplierRoundsLeft -= 1
+        }
 
         // ── Breather round? ──
         // After round 4, ~20% random chance, never back-to-back
@@ -693,6 +719,21 @@ class GameState {
 
         // First round: highlight ingredient tiles
         // (hintPositions set in spawnIngredientsForCurrentTarget for round 1)
+
+        // ── Golden tiles: ~15% chance per round after round 3, spawn 1 on a random existing tile ──
+        if round > 3 && !isBreather && Double.random(in: 0...1) < 0.15 {
+            // Pick a random occupied non-poison tile to make golden
+            let occupiedPositions = (0..<gridSize).flatMap { r in
+                (0..<gridSize).compactMap { c -> GridPosition? in
+                    let pos = GridPosition(row: r, col: c)
+                    guard grid[r][c] != nil, !poisonPositions.contains(pos) else { return nil }
+                    return pos
+                }
+            }
+            if let goldenPos = occupiedPositions.randomElement() {
+                goldenPositions.insert(goldenPos)
+            }
+        }
 
         // Start round timer (round 15+)
         startTimer()
@@ -1037,6 +1078,8 @@ class GameState {
         lastRoundWasBreather = false
         ddaActive = false
         backgroundFrenzyRoundsLeft = 0
+        goldenPositions = []
+        multiplierRoundsLeft = 0
         timeRemaining = 0
         timerLimit = 0
         timerActive = false
