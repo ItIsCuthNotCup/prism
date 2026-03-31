@@ -10,6 +10,8 @@ struct GameOverOverlay: View {
     let closestColor: PrismColor?
     let closestDistance: Int
     let totalBlends: Int
+    let lives: Int
+    let onUseLife: () -> Void
     let onPlayAgain: () -> Void
 
     @State private var showShareSheet = false
@@ -140,6 +142,43 @@ struct GameOverOverlay: View {
                             .tracking(1)
                     }
                     .padding(.bottom, 20)
+                }
+
+                // Retry with life
+                if lives > 0 {
+                    Button(action: onUseLife) {
+                        HStack(spacing: 8) {
+                            // Mini logo teardrops as life icons
+                            HStack(spacing: 3) {
+                                ForEach(0..<lives, id: \.self) { _ in
+                                    Teardrop()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [Color(hex: 0xFF5E6C), Color(hex: 0xA080E0)],
+                                                startPoint: .top,
+                                                endPoint: .bottom
+                                            )
+                                        )
+                                        .frame(width: 12, height: 15)
+                                }
+                            }
+                            Text("Retry Round")
+                                .font(.system(size: 15, weight: .bold))
+                        }
+                        .foregroundStyle(Color(hex: 0xFF5E6C))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(
+                            Capsule()
+                                .fill(Color(hex: 0xFF5E6C).opacity(0.1))
+                                .overlay(
+                                    Capsule()
+                                        .strokeBorder(Color(hex: 0xFF5E6C).opacity(0.3), lineWidth: 1)
+                                )
+                        )
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 8)
                 }
 
                 // Buttons

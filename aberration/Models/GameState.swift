@@ -47,6 +47,17 @@ class GameState {
     var closestColorDistance: Int = 0
     var closestColorOnBoard: PrismColor? = nil
 
+    // MARK: - Lives
+
+    var lives: Int = 3
+    /// Tracks how many lives were lost since the last bonus-life checkpoint
+    private var livesLostInStreak: Int = 0
+    /// The round at which we last awarded (or started tracking) a bonus life
+    private var streakCheckpointRound: Int = 0
+
+    /// Whether the player can spend a life to retry the current round
+    var canUseLife: Bool { lives > 0 && isGameOver }
+
     // MARK: - Undo
 
     private var undoGrid: [[PrismColor?]]? = nil
@@ -315,6 +326,8 @@ class GameState {
 
         isProcessing = true
         selectedPosition = nil
+        proximityHint = nil
+        proximityHintPosition = nil
         let result = PrismColor.mix(colorA, colorB)
 
         if !undoUsedThisRound {
@@ -454,16 +467,15 @@ class GameState {
 
                 try? await Task.sleep(for: .milliseconds(120))
                 lastBlendPosition = nil
+                checkGameOver()
+                isProcessing = false
 
-                // Clear proximity hint after a beat
+                // Clear proximity hint after player has seen it (non-blocking)
                 if proximityHint != nil {
-                    try? await Task.sleep(for: .milliseconds(900))
+                    try? await Task.sleep(for: .milliseconds(1000))
                     proximityHint = nil
                     proximityHintPosition = nil
                 }
-
-                checkGameOver()
-                isProcessing = false
             }
         }
     }
@@ -522,6 +534,7 @@ class GameState {
         if round > 0 {
             totalRoundsCompletedThisGame += 1
             if round > bestRound { bestRound = round }
+            checkBonusLife()
         }
         round += 1
         selectedPosition = nil
@@ -812,6 +825,43 @@ class GameState {
         if score > highScore { highScore = score }
     }
 
+    /// Spend a life to restart the current round (keeps score, round number, and lives - 1)
+    func useLife() {
+        guard canUseLife else { return }
+        lives -= 1
+        // Reset the bonus-life streak — must go another clean 10 from here
+        livesLostInStreak = 0
+        streakCheckpointRound = round
+        isGameOver = false
+        selectedPosition = nil
+        matchedPosition = nil
+        lastBlendPosition = nil
+        blendingPositions = nil
+        proximityHint = nil
+        proximityHintPosition = nil
+        undoGrid = nil
+        undoScore = nil
+        undoUsedThisRound = false
+
+        // Restart the same round: decrement so startNewRound increments back,
+        // and also decrement totalRoundsCompletedThisGame since startNewRound will
+        // increment it (but this round wasn't actually completed)
+        totalRoundsCompletedThisGame = max(0, totalRoundsCompletedThisGame - 1)
+        round -= 1
+        startNewRound()
+    }
+
+    /// Called when a round completes successfully — checks for bonus life every 10 rounds
+    private func checkBonusLife() {
+        let roundsSinceCheckpoint = round - streakCheckpointRound
+        if roundsSinceCheckpoint >= 10 && livesLostInStreak == 0 {
+            lives += 1
+            streakCheckpointRound = round
+            // Reset for next streak
+            livesLostInStreak = 0
+        }
+    }
+
     func newGame() {
         grid = Array(repeating: Array(repeating: nil, count: gridSize), count: gridSize)
         round = 0
@@ -842,6 +892,11 @@ class GameState {
         recentlyEmptiedPositions = []
         recentlyUnlockedAchievements = []
         achievementToast = nil
+        proximityHint = nil
+        proximityHintPosition = nil
+        lives = 3
+        livesLostInStreak = 0
+        streakCheckpointRound = 0
         roundCompleteCanDismiss = false
         tunnelDepth = 0
         gameID += 1

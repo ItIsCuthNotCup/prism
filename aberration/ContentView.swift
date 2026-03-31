@@ -51,6 +51,8 @@ struct PrismGameView: View {
                     HStack(spacing: 0) {
                         statBlock(label: "ROUND", value: "\(game.round)")
                         Spacer()
+                        livesDisplay
+                        Spacer()
                         statBlock(label: "SCORE", value: "\(game.score)")
                         Spacer()
                         statBlock(label: "BEST", value: "\(game.highScore)", accent: true)
@@ -254,7 +256,13 @@ struct PrismGameView: View {
                         targetColor: game.targetColor,
                         closestColor: game.closestColorOnBoard,
                         closestDistance: game.closestColorDistance,
-                        totalBlends: game.totalBlendsThisGame
+                        totalBlends: game.totalBlendsThisGame,
+                        lives: game.lives,
+                        onUseLife: {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                game.useLife()
+                            }
+                        }
                     ) {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             game.newGame()
@@ -345,6 +353,39 @@ struct PrismGameView: View {
                 .foregroundStyle(accent ? Color(hex: 0xF59E0B) : Color(hex: 0x2A2A3A))
                 .contentTransition(.numericText())
                 .animation(.spring(response: 0.3), value: value)
+        }
+    }
+
+    // MARK: - Lives Display
+
+    private var livesDisplay: some View {
+        VStack(spacing: 2) {
+            Text("LIVES")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(Color(hex: 0xAAAAAA))
+                .tracking(2)
+            HStack(spacing: 4) {
+                let maxSlots = max(3, game.lives)
+                ForEach(0..<maxSlots, id: \.self) { i in
+                    Teardrop()
+                        .fill(
+                            i < game.lives
+                                ? LinearGradient(
+                                    colors: [Color(hex: 0xFF5E6C), Color(hex: 0xA080E0)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                  )
+                                : LinearGradient(
+                                    colors: [Color(hex: 0xDDDDDD), Color(hex: 0xCCCCCC)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                  )
+                        )
+                        .frame(width: 14, height: 18)
+                        .opacity(i < game.lives ? 1.0 : 0.3)
+                }
+            }
+            .animation(.spring(response: 0.3), value: game.lives)
         }
     }
 
@@ -683,6 +724,25 @@ struct PrismGameView: View {
                             .foregroundStyle(Color(hex: 0xCCCCCC))
                     }
                 }
+
+                Section {
+                    rulesRow(icon: "drop.fill", color: Color(hex: 0x457B9D),
+                             text: "Tap two tiles to blend their colors together")
+                    rulesRow(icon: "target", color: Color(hex: 0xE63946),
+                             text: "Mix colors to match the target shown above the board")
+                    rulesRow(icon: "arrow.triangle.merge", color: Color(hex: 0x2A9D8F),
+                             text: "Red, Yellow, and Blue are primary colors — all other colors are made by mixing them")
+                    rulesRow(icon: "heart.fill", color: Color(hex: 0xFF5E6C),
+                             text: "You start with 3 lives. Spend one to retry a failed round")
+                    rulesRow(icon: "heart.circle.fill", color: Color(hex: 0xA080E0),
+                             text: "Survive 10 rounds without using a life to earn a bonus life")
+                    rulesRow(icon: "exclamationmark.triangle.fill", color: Color(hex: 0x8B5CF6),
+                             text: "Poison tiles appear after Round 10 — tapping one ends the game")
+                    rulesRow(icon: "arrow.counterclockwise", color: Color(hex: 0xF59E0B),
+                             text: "Use undo to take back your last blend (once per round)")
+                } header: {
+                    Text("How to Play")
+                }
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
@@ -692,8 +752,21 @@ struct PrismGameView: View {
                 }
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.large])
         .preferredColorScheme(.light)
+    }
+
+    private func rulesRow(icon: String, color: Color, text: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 15))
+                .foregroundStyle(color)
+                .frame(width: 24)
+            Text(text)
+                .font(.system(size: 14))
+                .foregroundStyle(Color(hex: 0x3A3A4A))
+        }
+        .padding(.vertical, 2)
     }
 
     // MARK: - Start Screen

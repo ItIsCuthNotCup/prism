@@ -82,6 +82,7 @@ struct GridView: View {
         }()
         let isHinted = game.hintPositions.contains(pos)
         let isPoison = game.poisonPositions.contains(pos)
+        let proximityHint: GameState.ProximityHint? = game.proximityHintPosition == pos ? game.proximityHint : nil
 
         if let tileColor = game.tile(at: pos) {
             // Compute blend preview: small dot showing what this tile + selected tile would make
@@ -101,6 +102,17 @@ struct GridView: View {
                 showLabel: game.showColorLabels,
                 blendPreview: blendPreview
             )
+            .overlay(alignment: .top) {
+                if let hint = proximityHint {
+                    proximityBadge(hint)
+                        .offset(y: -14)
+                        .transition(.asymmetric(
+                            insertion: .scale(scale: 0.5).combined(with: .opacity),
+                            removal: .opacity
+                        ))
+                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: game.proximityHint)
+                }
+            }
         } else {
             // Empty cell — subtle glass indent
             RoundedRectangle(cornerRadius: 10)
@@ -121,5 +133,27 @@ struct GridView: View {
                         )
                 )
         }
+    }
+
+    // MARK: - Proximity Hint Badge
+
+    private func proximityBadge(_ hint: GameState.ProximityHint) -> some View {
+        let color: Color = switch hint {
+            case .hot:   Color(hex: 0xFF6B35)
+            case .warm:  Color(hex: 0xFFB800)
+            case .close: Color(hex: 0x66AACC)
+        }
+
+        return Text(hint.label)
+            .font(.system(size: 10, weight: .bold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(
+                Capsule()
+                    .fill(color)
+                    .shadow(color: color.opacity(0.4), radius: 4, y: 2)
+            )
+            .allowsHitTesting(false)
     }
 }
