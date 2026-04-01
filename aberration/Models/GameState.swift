@@ -39,6 +39,11 @@ class GameState {
     /// Increments each new game — triggers background pattern re-roll
     var gameID: Int = 0
 
+    // MARK: - Discovered Colors (for background painting)
+    /// Colors the player has created through blending this session.
+    /// Primaries start unlocked; new colors appear as the player blends them.
+    var discoveredColorIndices: Set<Int> = [0, 16, 32]  // Red, Yellow, Blue
+
     // MARK: - Near-Miss Stats (for game over screen)
 
     var bestRound: Int {
@@ -410,6 +415,9 @@ class GameState {
 
             blendingPositions = nil
             lastBlendPosition = posA
+
+            // Track this color as discovered — feeds into background canvas
+            discoveredColorIndices.insert(result.wheelIndex)
 
             score += 10 * scoreMultiplier
             blendsThisTarget += 1
@@ -1029,6 +1037,7 @@ class GameState {
         // Note: consecutiveDeaths NOT reset — persists across games for DDA
         roundCompleteCanDismiss = false
         tunnelDepth = 0
+        discoveredColorIndices = [0, 16, 32]  // reset to primaries
         gameID += 1
         totalBlendsThisGame = 0
         totalRoundsCompletedThisGame = 0

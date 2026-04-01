@@ -29,77 +29,62 @@ struct PrismGameView: View {
                 Color(hex: 0xF5F5F7)
                     .ignoresSafeArea()
 
-                TunnelBackground(depth: game.tunnelDepth, pulseID: game.tunnelDepth, tapPulseID: game.tapPulseID, gameID: game.gameID, frenzy: game.isBackgroundFrenzy)
+                TunnelBackground(depth: game.tunnelDepth, pulseID: game.tunnelDepth, tapPulseID: game.tapPulseID, gameID: game.gameID, frenzy: game.isBackgroundFrenzy, discoveredColorIndices: game.discoveredColorIndices)
 
-                VStack(spacing: 12) {
-                    // Title + Settings + Walking Cat
-                    ZStack {
-                        ChromaHeader()
-
-                        HStack {
-                            Spacer()
-                            Button {
-                                showSettings.toggle()
-                            } label: {
-                                Image(systemName: "gearshape")
-                                    .font(.system(size: 17, weight: .medium))
-                                    .foregroundStyle(Color(hex: 0x555555))
-                            }
+                VStack(spacing: 0) {
+                    // Settings gear — top right
+                    HStack {
+                        Spacer()
+                        Button {
+                            showSettings.toggle()
+                        } label: {
+                            Image(systemName: "gearshape")
+                                .font(.system(size: 17, weight: .medium, design: .serif))
+                                .foregroundStyle(Color(hex: 0x555555))
                         }
                     }
+                    .padding(.bottom, 4)
 
-                  // ── Top container: stats + target ──
-                  VStack(spacing: 8) {
-                    // Stats bar
-                    HStack(spacing: 0) {
-                        statBlock(label: "ROUND", value: "\(game.round)")
-                        Spacer()
-                        livesDisplay
-                        Spacer()
-                        VStack(spacing: 2) {
-                            statBlock(label: "SCORE", value: "\(game.score)")
-                            if game.isMultiplierActive {
-                                Text("×3 (\(game.multiplierRoundsLeft))")
-                                    .font(.system(size: 9, weight: .heavy, design: .rounded))
-                                    .foregroundStyle(Color(hex: 0xFFD700))
-                            }
-                        }
-                        Spacer()
-                        statBlock(label: "BEST", value: "\(game.highScore)", accent: true)
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
+                  // ── Top container with cat peeking over ──
+                  ZStack(alignment: .top) {
+                    // 1) Cat behind the card — head peeks above
+                    Image("cat_0095")
+                        .interpolation(.none)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(height: 72)
+
+                    // 2) Card drawn on top — covers cat's body
+                    VStack(spacing: 8) {
+                      // Stats bar
+                      HStack(alignment: .top, spacing: 0) {
+                          statBlock(label: "ROUND", value: "\(game.round)")
+                          Spacer()
+                          livesDisplay
+                          Spacer()
+                          statBlock(label: "SCORE", value: "\(game.score)")
+                          Spacer()
+                          statBlock(label: "BEST", value: "\(game.highScore)", accent: true)
+                      }
+                      .padding(.horizontal, 20)
+                      .padding(.vertical, 10)
 
                     // Target color + progress + blend preview
                     if let target = game.targetColor {
                         VStack(spacing: 8) {
-                            // Multi-step progress
+                            // Multi-step progress dots (no label for single target)
                             if game.totalTargetsThisRound > 1 {
-                                HStack(spacing: 6) {
-                                    Text("TARGET")
-                                        .font(.system(size: 9, weight: .semibold))
-                                        .foregroundStyle(Color(hex: 0xAAAAAA))
-                                        .tracking(2)
-                                    HStack(spacing: 4) {
-                                        ForEach(0..<game.totalTargetsThisRound, id: \.self) { i in
-                                            Circle()
-                                                .fill(i < game.currentTargetNumber - 1
-                                                      ? Color(hex: 0x2A9D8F)
-                                                      : (i == game.currentTargetNumber - 1
-                                                         ? Color(hex: 0xF59E0B)
-                                                         : Color(hex: 0xDDDDDD)))
-                                                .frame(width: 6, height: 6)
-                                        }
+                                HStack(spacing: 4) {
+                                    ForEach(0..<game.totalTargetsThisRound, id: \.self) { i in
+                                        Circle()
+                                            .fill(i < game.currentTargetNumber - 1
+                                                  ? Color(hex: 0x2A9D8F)
+                                                  : (i == game.currentTargetNumber - 1
+                                                     ? Color(hex: 0x888888)
+                                                     : Color(hex: 0xDDDDDD)))
+                                            .frame(width: 6, height: 6)
                                     }
-                                    Text("\(game.currentTargetNumber)/\(game.totalTargetsThisRound)")
-                                        .font(.system(size: 9, weight: .bold, design: .rounded))
-                                        .foregroundStyle(Color(hex: 0x888888))
                                 }
-                            } else {
-                                Text("MATCH")
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .foregroundStyle(Color(hex: 0xAAAAAA))
-                                    .tracking(4)
                             }
 
                             RoundedRectangle(cornerRadius: 14)
@@ -131,17 +116,11 @@ struct PrismGameView: View {
                                     .foregroundStyle(Color(hex: 0x3A3A4A))
                                     .tracking(3)
 
-                                // Par indicator
+                                // Blend hint (step count)
                                 if game.parForCurrentTarget > 0 {
-                                    Text("PAR \(game.parForCurrentTarget)")
-                                        .font(.system(size: 9, weight: .bold))
-                                        .foregroundStyle(Color(hex: 0xBBBBBB))
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(
-                                            Capsule()
-                                                .strokeBorder(Color(hex: 0xDDDDDD), lineWidth: 0.5)
-                                        )
+                                    Text("\(game.parForCurrentTarget) steps")
+                                        .font(.system(size: 11, weight: .medium, design: .serif))
+                                        .foregroundStyle(Color(hex: 0x999999))
                                 }
                             }
 
@@ -174,12 +153,17 @@ struct PrismGameView: View {
                         .animation(.spring(response: 0.4), value: target.wheelIndex)
                     }
                     // Timer removed — zen mode
-                  } // end top container
-                  .padding(.horizontal, 4)
-                  .padding(.vertical, 8)
-                  .background(glassCard(cornerRadius: 20))
+                    } // end card VStack
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 8)
+                    .padding(.top, 40)   // push card down so cat face is visible
+                    .background(
+                        glassCard(cornerRadius: 20)
+                            .padding(.top, 40) // glass also starts 40pts down
+                    )
+                  } // end ZStack (cat + top card)
 
-                    Spacer(minLength: 0)
+                    Spacer(minLength: 24)
 
                   // ── Bottom container: grid + buttons ──
                   VStack(spacing: 0) {
@@ -312,6 +296,12 @@ struct PrismGameView: View {
         }
         .background(Color(hex: 0xF5F5F7))
         .preferredColorScheme(.light)
+        .onChange(of: game.isGameOver) { _, isOver in
+            if isOver {
+                // Fibonacci-scheduled interstitial ad at game over
+                AdManager.shared.showAdIfScheduled()
+            }
+        }
         .sheet(isPresented: $showSettings) {
             settingsView
         }
@@ -338,13 +328,13 @@ struct PrismGameView: View {
     private func glassCard(cornerRadius: CGFloat) -> some View {
         ZStack {
             RoundedRectangle(cornerRadius: cornerRadius)
-                .fill(.white.opacity(0.65))
+                .fill(.white.opacity(0.88))
             RoundedRectangle(cornerRadius: cornerRadius)
-                .fill(.ultraThinMaterial)
+                .fill(.thinMaterial)
             RoundedRectangle(cornerRadius: cornerRadius)
-                .strokeBorder(.white.opacity(0.8), lineWidth: 0.5)
+                .strokeBorder(.white.opacity(0.9), lineWidth: 0.5)
         }
-        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+        .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
     }
 
     // MARK: - Dot Grid Background
@@ -373,12 +363,12 @@ struct PrismGameView: View {
     private func statBlock(label: String, value: String, accent: Bool = false) -> some View {
         VStack(spacing: 2) {
             Text(label)
-                .font(.system(size: 10, weight: .medium))
+                .font(.system(size: 10, weight: .medium, design: .serif))
                 .foregroundStyle(Color(hex: 0xAAAAAA))
                 .tracking(2)
             Text(value)
-                .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundStyle(accent ? Color(hex: 0xF59E0B) : Color(hex: 0x2A2A3A))
+                .font(.system(size: 22, weight: .bold, design: .serif))
+                .foregroundStyle(accent ? Color(hex: 0x8D99AE) : Color(hex: 0x2A2A3A))
                 .contentTransition(.numericText())
                 .animation(.spring(response: 0.3), value: value)
         }
@@ -388,8 +378,8 @@ struct PrismGameView: View {
 
     private var livesDisplay: some View {
         VStack(spacing: 2) {
-            Text("LIVES")
-                .font(.system(size: 10, weight: .medium))
+            Text("HEALTH")
+                .font(.system(size: 10, weight: .medium, design: .serif))
                 .foregroundStyle(Color(hex: 0xAAAAAA))
                 .tracking(2)
             HStack(spacing: 4) {
@@ -413,6 +403,7 @@ struct PrismGameView: View {
                         .opacity(i < game.lives ? 1.0 : 0.3)
                 }
             }
+            .frame(height: 26) // match number text height for alignment
             .animation(.spring(response: 0.3), value: game.lives)
         }
     }
@@ -430,7 +421,7 @@ struct PrismGameView: View {
                     .foregroundStyle(Color(hex: 0x2A9D8F))
 
                 Text("\(game.currentTargetNumber)/\(game.totalTargetsThisRound)")
-                    .font(.system(size: 20, weight: .black, design: .rounded))
+                    .font(.system(size: 20, weight: .black, design: .serif))
                     .foregroundStyle(Color(hex: 0x2A2A3A))
 
                 Text("Next color incoming...")
@@ -439,7 +430,7 @@ struct PrismGameView: View {
 
                 if let combo = game.comboMessage {
                     Text(combo)
-                        .font(.system(size: 14, weight: .black, design: .rounded))
+                        .font(.system(size: 14, weight: .black, design: .serif))
                         .foregroundStyle(Color(hex: 0xF59E0B))
                         .tracking(2)
                         .padding(.top, 4)
@@ -489,7 +480,7 @@ struct PrismGameView: View {
                 .tracking(3)
 
             Text("COMPLETE")
-                .font(.system(size: 26, weight: .black, design: .rounded))
+                .font(.system(size: 26, weight: .black, design: .serif))
                 .foregroundStyle(Color(hex: 0x2A2A3A))
                 .tracking(4)
 
@@ -498,8 +489,7 @@ struct PrismGameView: View {
                 scoreRow(label: "Blends", value: "+\(game.lastRoundBlendPoints)")
                 scoreRow(label: "Match", value: "+\(game.lastRoundMatchBonus)")
                 if game.lastRoundComboBonus > 0 {
-                    scoreRow(label: game.comboMessage?.contains("UNDER") == true ? "Under Par" : "Par",
-                             value: "+\(game.lastRoundComboBonus)", accent: true)
+                    scoreRow(label: "Bonus", value: "+\(game.lastRoundComboBonus)", accent: true)
                 }
             }
             .padding(.top, 4)
@@ -523,7 +513,7 @@ struct PrismGameView: View {
                 .foregroundStyle(Color(hex: 0xAAAAAA))
             Spacer()
             Text(value)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .font(.system(size: 12, weight: .bold, design: .serif))
                 .foregroundStyle(accent ? Color(hex: 0xF59E0B) : Color(hex: 0x666666))
         }
         .frame(width: 140)
@@ -548,7 +538,7 @@ struct PrismGameView: View {
                 .tracking(3)
 
             Text("AMAZING!")
-                .font(.system(size: 32, weight: .black, design: .rounded))
+                .font(.system(size: 32, weight: .black, design: .serif))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [Color(hex: 0xF59E0B), Color(hex: 0xE63946), Color(hex: 0xF59E0B)],
@@ -570,7 +560,7 @@ struct PrismGameView: View {
 
             if let combo = game.comboMessage {
                 Text(combo)
-                    .font(.system(size: 15, weight: .black, design: .rounded))
+                    .font(.system(size: 15, weight: .black, design: .serif))
                     .foregroundStyle(Color(hex: 0xF59E0B))
                     .tracking(2)
             }
@@ -749,25 +739,23 @@ struct PrismGameView: View {
 
             dotGridBackground
 
-            VStack(spacing: 40) {
+            VStack(spacing: 32) {
                 Spacer()
-
-                VStack(spacing: 16) {
-                    ChromaHeader(fontSize: 52)
-
-                    Text("Stillhue")
-                        .font(.system(size: 36, weight: .regular, design: .serif))
-                        .foregroundStyle(Color(hex: 0x2A2A2A))
-                        .tracking(1)
-                }
-
-                Text("Blend colors to match the target.")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(Color(hex: 0x888888))
 
                 CatMascotView()
                     .frame(maxWidth: .infinity)
                     .frame(height: 120)
+
+                VStack(spacing: 12) {
+                    Text("Stillhue")
+                        .font(.system(size: 42, weight: .regular, design: .serif))
+                        .foregroundStyle(Color(hex: 0x2A2A2A))
+                        .tracking(2)
+
+                    Text("Blend colors to match the target.")
+                        .font(.system(size: 15, weight: .medium, design: .serif))
+                        .foregroundStyle(Color(hex: 0x888888))
+                }
 
                 Spacer()
 

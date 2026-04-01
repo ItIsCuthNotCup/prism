@@ -55,7 +55,7 @@ struct GameOverOverlay: View {
                 VStack(spacing: 6) {
                     if isNewHighScore {
                         Text("NEW RECORD")
-                            .font(.system(size: 11, weight: .black, design: .rounded))
+                            .font(.system(size: 11, weight: .black, design: .serif))
                             .foregroundStyle(Color(hex: 0xF59E0B))
                             .tracking(4)
                             .padding(.horizontal, 12)
@@ -67,7 +67,7 @@ struct GameOverOverlay: View {
                     }
 
                     Text("GAME OVER")
-                        .font(.system(size: 28, weight: .black, design: .rounded))
+                        .font(.system(size: 28, weight: .black, design: .serif))
                         .foregroundStyle(Color(hex: 0x2A2A3A))
                         .tracking(4)
                 }
@@ -76,7 +76,7 @@ struct GameOverOverlay: View {
                 // Score display
                 VStack(spacing: 4) {
                     Text("\(score)")
-                        .font(.system(size: 52, weight: .black, design: .rounded))
+                        .font(.system(size: 52, weight: .black, design: .serif))
                         .foregroundStyle(
                             LinearGradient(
                                 colors: isNewHighScore
@@ -272,7 +272,7 @@ struct GameOverOverlay: View {
     private func miniStat(label: String, value: String) -> some View {
         VStack(spacing: 2) {
             Text(value)
-                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .font(.system(size: 18, weight: .bold, design: .serif))
                 .foregroundStyle(Color(hex: 0x3A3A4A))
             Text(label)
                 .font(.system(size: 9, weight: .medium))

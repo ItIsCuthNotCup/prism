@@ -1,109 +1,74 @@
 //
 //  TunnelBackground.swift
-//  Chromatose
+//  Stillhue
 //
-//  Procedurally generated background — every session paints a
-//  unique pattern from a random seed. Shapes, palettes, motion
-//  styles, and layouts are all selected at init time.
-//  Always-on ambient animation with frenzy intensification.
+//  Procedurally generated background — a unique static pattern per round,
+//  painted with colors the player has discovered through blending.
+//  Pattern regenerates only on round-end or new game, never mid-round.
 //
 
 import SwiftUI
 
-// MARK: - Seed-driven configuration
+// MARK: - Deterministic PRNG (xorshift64)
 
-/// All randomness for one background "world."
-private struct WorldSeed {
-    let shape: ShapeKind
-    let palette: [(r: Double, g: Double, b: Double)]
-    let motionStyle: MotionStyle
-    let ambientEffect: AmbientEffect
-    let gridSpacing: CGFloat
-    let baseAngleOffset: CGFloat
-    let rotationSpeed: CGFloat     // how fast sub-shapes orbit
-    let waveAmplitude: CGFloat     // for wave / spiral motion
-    let waveFrequency: CGFloat
+/// Lightweight seedable random number generator for reproducible patterns.
+private struct SeededRNG {
+    private var state: UInt64
 
-    enum ShapeKind: CaseIterable {
-        case circle, square, diamond, triangle, ring, cross, star
+    init(seed: UInt64) {
+        state = seed == 0 ? 1 : seed
     }
 
-    enum MotionStyle: CaseIterable {
-        case expand       // radial outward (original behaviour)
-        case spiral       // orbit while separating
-        case wave         // sine-wave drift
-        case scatter      // random fixed offsets that scale
-        case bloom        // all push outward from center of screen
+    mutating func next() -> UInt64 {
+        state ^= state << 13
+        state ^= state >> 7
+        state ^= state << 17
+        return state
     }
 
-    /// Ambient background animation — always active, intensified during frenzy
-    enum AmbientEffect: CaseIterable {
-        case breathe      // slow zoom pulse on grid spacing
-        case flow         // sine wave drift of all points
-        case ripple       // concentric ring displacement from center
-        case twist        // rotational displacement based on distance from center
-        case drift        // all points slowly migrate in one direction
+    /// Returns a Double in [0, 1)
+    mutating func nextDouble() -> Double {
+        Double(next() % 1_000_000) / 1_000_000.0
     }
 
-    /// Build a fresh random world
-    static func random() -> WorldSeed {
-        let shape = ShapeKind.allCases.randomElement()!
-        let palette = randomPalette()
-        let motion = MotionStyle.allCases.randomElement()!
-        let ambient = AmbientEffect.allCases.randomElement()!
-        let spacing = CGFloat.random(in: 24...34)
-        let angleOff = CGFloat.random(in: 0 ... .pi * 2)
-        let rotSpeed = CGFloat.random(in: 0.08...0.35)
-            * (Bool.random() ? 1 : -1)
-        let wAmp = CGFloat.random(in: 0.5...2.0)
-        let wFreq = CGFloat.random(in: 0.04...0.12)
-        return WorldSeed(shape: shape, palette: palette,
-                         motionStyle: motion, ambientEffect: ambient,
-                         gridSpacing: spacing,
-                         baseAngleOffset: angleOff,
-                         rotationSpeed: rotSpeed,
-                         waveAmplitude: wAmp, waveFrequency: wFreq)
+    /// Returns a CGFloat in [lo, hi)
+    mutating func nextFloat(in range: ClosedRange<CGFloat>) -> CGFloat {
+        let t = CGFloat(nextDouble())
+        return range.lowerBound + t * (range.upperBound - range.lowerBound)
     }
 
-    // 10 curated vibrant zen palettes — exact hex values from design spec.
-    private static let zenPalettes: [[(r: Double, g: Double, b: Double)]] = [
-        // 1. Fresh Lagoon (#5ED3D1, #8AE6CF, #C7F9CC)
-        [(0.369, 0.827, 0.820), (0.541, 0.902, 0.812), (0.780, 0.976, 0.800)],
-        // 2. Sakura Glow (#FF8FAB, #FFB3C6, #FFC8DD)
-        [(1.000, 0.561, 0.671), (1.000, 0.702, 0.776), (1.000, 0.784, 0.867)],
-        // 3. Citrus Calm (#FFD166, #F4A261, #E9EDC9)
-        [(1.000, 0.820, 0.400), (0.957, 0.635, 0.380), (0.914, 0.929, 0.788)],
-        // 4. Tropical Zen (#06D6A0, #118AB2, #73C2FB)
-        [(0.024, 0.839, 0.627), (0.067, 0.541, 0.698), (0.451, 0.761, 0.984)],
-        // 5. Lavender Pop (#B388EB, #DDBDF1, #FFC6FF)
-        [(0.702, 0.533, 0.922), (0.867, 0.741, 0.945), (1.000, 0.776, 1.000)],
-        // 6. Soft Coral Reef (#FF6F61, #FF9A8B, #FCD5CE)
-        [(1.000, 0.435, 0.380), (1.000, 0.604, 0.545), (0.988, 0.835, 0.808)],
-        // 7. Modern Pastel Neon (#80FFDB, #64DFDF, #48BFE3)
-        [(0.502, 1.000, 0.859), (0.392, 0.875, 0.875), (0.282, 0.749, 0.890)],
-        // 8. Matcha Energy (#90DB3A, #B5E48C, #D9ED92)
-        [(0.565, 0.859, 0.227), (0.710, 0.894, 0.549), (0.851, 0.929, 0.573)],
-        // 9. Sunset Sorbet (#FF7F51, #FFB703, #FB8500)
-        [(1.000, 0.498, 0.318), (1.000, 0.718, 0.012), (0.984, 0.522, 0.000)],
-        // 10. Blueberry Cream (#4EA8DE, #72EFDD, #CDB4DB)
-        [(0.306, 0.659, 0.871), (0.447, 0.937, 0.867), (0.804, 0.706, 0.859)],
-    ]
+    /// Returns an Int in [0, bound)
+    mutating func nextInt(_ bound: Int) -> Int {
+        guard bound > 0 else { return 0 }
+        return Int(next() % UInt64(bound))
+    }
 
-    private static func randomPalette() -> [(r: Double, g: Double, b: Double)] {
-        zenPalettes.randomElement()!
+    /// Returns true with given probability [0..1]
+    mutating func chance(_ probability: Double) -> Bool {
+        nextDouble() < probability
     }
 }
 
-// MARK: - Shape drawing helpers
+// MARK: - Shape types
 
-private func drawShape(_ kind: WorldSeed.ShapeKind,
-                       in context: inout GraphicsContext,
-                       at center: CGPoint, radius: CGFloat,
-                       color: Color) {
+private enum MarkShape: CaseIterable {
+    case circle, square, diamond, triangle, ring, cross, star, dot
+}
+
+private func drawMark(_ kind: MarkShape,
+                      in context: inout GraphicsContext,
+                      at center: CGPoint, radius: CGFloat,
+                      color: Color) {
     switch kind {
     case .circle:
         let r = CGRect(x: center.x - radius, y: center.y - radius,
                        width: radius * 2, height: radius * 2)
+        context.fill(Path(ellipseIn: r), with: .color(color))
+
+    case .dot:
+        // Smaller, softer circle
+        let r = CGRect(x: center.x - radius * 0.6, y: center.y - radius * 0.6,
+                       width: radius * 1.2, height: radius * 1.2)
         context.fill(Path(ellipseIn: r), with: .color(color))
 
     case .square:
@@ -164,6 +129,71 @@ private func drawShape(_ kind: WorldSeed.ShapeKind,
     }
 }
 
+// MARK: - Layout strategies
+
+/// How marks are distributed across the canvas.
+private enum LayoutStyle: CaseIterable {
+    case scatteredGrid    // grid with heavy jitter + sparse skip
+    case freeScatter      // fully random positions
+    case radialBurst      // marks emanate from center in rings
+    case diagonalBands    // marks cluster along diagonal lines
+    case clusters         // small random groups scattered around
+    case confetti         // lots of tiny marks, very sparse
+    case cornerBloom      // marks concentrate toward corners/edges
+}
+
+// MARK: - Pattern configuration (generated per round)
+
+private struct PatternConfig {
+    let layout: LayoutStyle
+    let shapes: [MarkShape]         // 1-3 shapes used this round
+    let markCount: Int              // how many colored marks to draw
+    let sizeRange: ClosedRange<CGFloat>
+    let alphaRange: ClosedRange<CGFloat>
+    let gridSpacing: CGFloat
+    let jitter: CGFloat             // position jitter for grid layouts
+    let rngSeed: UInt64
+
+    static func generate(seed: UInt64, depth: Int) -> PatternConfig {
+        var rng = SeededRNG(seed: seed)
+
+        let layout = LayoutStyle.allCases[rng.nextInt(LayoutStyle.allCases.count)]
+
+        // Pick 1-3 shape types for this round
+        let shapeCount = rng.nextInt(3) + 1
+        var shapes: [MarkShape] = []
+        for _ in 0..<shapeCount {
+            shapes.append(MarkShape.allCases[rng.nextInt(MarkShape.allCases.count)])
+        }
+
+        // Depth influences mark count and size — more colors = richer canvas
+        let baseCount = 60 + rng.nextInt(80)                    // 60-140 marks
+        let depthBonus = min(depth * 3, 60)                     // up to 60 more
+        let markCount = baseCount + depthBonus
+
+        let minSize = rng.nextFloat(in: 2.5...4.0)
+        let maxSize = minSize + rng.nextFloat(in: 2.0...6.0)
+
+        // Alpha: always subtle, varies by round personality
+        let minAlpha = rng.nextFloat(in: 0.06...0.10)
+        let maxAlpha = rng.nextFloat(in: 0.14...0.22)
+
+        let spacing = rng.nextFloat(in: 30...50)
+        let jitter = rng.nextFloat(in: 5...20)
+
+        return PatternConfig(
+            layout: layout,
+            shapes: shapes,
+            markCount: markCount,
+            sizeRange: minSize...maxSize,
+            alphaRange: minAlpha...maxAlpha,
+            gridSpacing: spacing,
+            jitter: jitter,
+            rngSeed: seed
+        )
+    }
+}
+
 // MARK: - View
 
 struct TunnelBackground: View {
@@ -172,198 +202,215 @@ struct TunnelBackground: View {
     var tapPulseID: Int = 0
     var gameID: Int = 0
     var frenzy: Bool = false
+    /// Wheel indices of colors the player has discovered through blending
+    var discoveredColorIndices: Set<Int> = []
 
-    @State private var roundPulse: CGFloat = 0
-    @State private var tapPulse: CGFloat = 0
-    @State private var seed = WorldSeed.random()
+    /// Seed for the current pattern — changes only on round-end or new game
+    @State private var patternSeed: UInt64 = 1
 
     var body: some View {
-        // Zen mode: 1 fps — glacial, barely perceptible motion
-        TimelineView(.animation(minimumInterval: 2.0, paused: false)) { timeline in
-            let t = CGFloat(timeline.date.timeIntervalSinceReferenceDate)
+        Canvas { context, size in
+            var rng = SeededRNG(seed: patternSeed)
+            let config = PatternConfig.generate(seed: patternSeed, depth: depth)
 
-            Canvas { context, size in
-                let d = CGFloat(depth)
-                let baseSpacing = seed.gridSpacing
+            // --- Layer 1: Grey dot grid (graph paper, always present) ---
+            let greyAlpha = max(0.08, 0.30 - CGFloat(depth) * 0.012)
+            let dotSpacing: CGFloat = 20.0
+            let dotRadius: CGFloat = 1.2
 
-                // Ambient effect modifies spacing for breathe effect
-                let spacing = ambientSpacing(base: baseSpacing, t: t, frenzy: frenzy)
-
-                // Grey base: fades out as colour emerges
-                let greyAlpha = max(0.0, 0.30 - d * 0.018)
-                let greyRadius: CGFloat = 2.8
-
-                // Colour: fades in
-                let colorAlpha = min(d * 0.04, 0.65)
-                let separation = d * 1.4 + roundPulse * 4 + tapPulse * 2
-                let colorRadius = 2.0 + d * 0.35 + roundPulse * 1.5
-
-                let cx = size.width / 2
-                let cy = size.height / 2
-
-                for gx in stride(from: spacing * 0.5, to: size.width + spacing, by: spacing) {
-                    for gy in stride(from: spacing * 0.5, to: size.height + spacing, by: spacing) {
-
-                        // Always-on ambient displacement
-                        let (rgx, rgy) = ambientDisplace(
-                            gx: gx, gy: gy, cx: cx, cy: cy,
-                            t: t, frenzy: frenzy, size: size)
-
-                        // -- Grey base dot --
-                        if greyAlpha > 0.01 {
-                            let rect = CGRect(x: rgx - greyRadius, y: rgy - greyRadius,
-                                              width: greyRadius * 2, height: greyRadius * 2)
-                            context.fill(Path(ellipseIn: rect),
-                                         with: .color(Color(white: 0.35, opacity: greyAlpha)))
-                        }
-
-                        // -- Coloured sub-shapes --
-                        if colorAlpha > 0.01 {
-                            for (i, pal) in seed.palette.enumerated() {
-                                let baseAngle = seed.baseAngleOffset
-                                    + CGFloat(i) * .pi * 2 / CGFloat(seed.palette.count)
-
-                                let (sx, sy) = subShapePosition(
-                                    gx: rgx, gy: rgy, cx: cx, cy: cy,
-                                    index: i, baseAngle: baseAngle,
-                                    separation: separation, depth: d)
-
-                                let color = Color(.sRGB, red: pal.r, green: pal.g,
-                                                  blue: pal.b, opacity: colorAlpha)
-
-                                drawShape(seed.shape, in: &context,
-                                          at: CGPoint(x: sx, y: sy),
-                                          radius: colorRadius, color: color)
-                            }
-                        }
-                    }
+            for gx in stride(from: dotSpacing * 0.5, to: size.width, by: dotSpacing) {
+                for gy in stride(from: dotSpacing * 0.5, to: size.height, by: dotSpacing) {
+                    let rect = CGRect(x: gx - dotRadius, y: gy - dotRadius,
+                                      width: dotRadius * 2, height: dotRadius * 2)
+                    context.fill(Path(ellipseIn: rect),
+                                 with: .color(Color(white: 0.35, opacity: greyAlpha)))
                 }
+            }
+
+            // --- Layer 2: Colored marks from discovered palette ---
+            guard !discoveredColorIndices.isEmpty else { return }
+
+            let palette: [(r: Double, g: Double, b: Double)] = discoveredColorIndices.sorted().map { idx in
+                let hex = PrismColor.hexValues[idx]
+                let r = Double((hex >> 16) & 0xFF) / 255.0
+                let g = Double((hex >> 8) & 0xFF) / 255.0
+                let b = Double(hex & 0xFF) / 255.0
+                return (r, g, b)
+            }
+
+            // Generate mark positions based on layout style
+            let marks = generatePositions(
+                layout: config.layout,
+                count: config.markCount,
+                size: size,
+                config: config,
+                rng: &rng
+            )
+
+            for pos in marks {
+                // Pick a color from the palette
+                let palIdx = rng.nextInt(palette.count)
+                let pal = palette[palIdx]
+
+                // Pick a shape from this round's shape set
+                let shape = config.shapes[rng.nextInt(config.shapes.count)]
+
+                // Randomize size and opacity within this round's range
+                let radius = rng.nextFloat(in: config.sizeRange)
+                let alpha = rng.nextFloat(in: config.alphaRange)
+
+                let color = Color(.sRGB, red: pal.r, green: pal.g,
+                                  blue: pal.b, opacity: Double(alpha))
+                drawMark(shape, in: &context,
+                         at: pos, radius: radius, color: color)
             }
         }
         .ignoresSafeArea()
         .onChange(of: pulseID) { _, _ in
-            roundPulse = 1.0
-            withAnimation(.easeOut(duration: 3.0)) { roundPulse = 0 }
+            // Round ended — new pattern with new seed
+            patternSeed = patternSeed &+ UInt64(pulseID) &* 6364136223846793005 &+ 1
         }
-        // Tap pulse disabled — zen mode (no per-tap background jitter)
         .onChange(of: gameID) { _, _ in
-            seed = WorldSeed.random()
+            // New game — completely fresh pattern
+            patternSeed = UInt64(gameID) &* 2862933555777941757 &+ 3037000493
+        }
+        .onAppear {
+            patternSeed = UInt64(gameID &+ 1) &* 2862933555777941757 &+ UInt64(pulseID)
         }
     }
 
-    // MARK: - Ambient Effects
+    // MARK: - Position generation
 
-    /// Modify grid spacing for breathing effect — zen: very gentle
-    private func ambientSpacing(base: CGFloat, t: CGFloat, frenzy: Bool) -> CGFloat {
-        switch seed.ambientEffect {
-        case .breathe:
-            // Zen: glacial ±1px breathing
-            let amp: CGFloat = 1.0
-            let speed: CGFloat = 0.0075
-            return base + sin(t * speed) * amp
-        default:
-            return base
+    private func generatePositions(
+        layout: LayoutStyle,
+        count: Int,
+        size: CGSize,
+        config: PatternConfig,
+        rng: inout SeededRNG
+    ) -> [CGPoint] {
+        switch layout {
+        case .scatteredGrid:
+            return scatteredGrid(count: count, size: size, config: config, rng: &rng)
+        case .freeScatter:
+            return freeScatter(count: count, size: size, rng: &rng)
+        case .radialBurst:
+            return radialBurst(count: count, size: size, rng: &rng)
+        case .diagonalBands:
+            return diagonalBands(count: count, size: size, rng: &rng)
+        case .clusters:
+            return clusterLayout(count: count, size: size, rng: &rng)
+        case .confetti:
+            return freeScatter(count: count + 40, size: size, rng: &rng)
+        case .cornerBloom:
+            return cornerBloom(count: count, size: size, rng: &rng)
         }
     }
 
-    /// Displace a grid point based on the ambient effect — zen: glacial motion
-    private func ambientDisplace(gx: CGFloat, gy: CGFloat,
-                                  cx: CGFloat, cy: CGFloat,
-                                  t: CGFloat, frenzy: Bool,
-                                  size: CGSize) -> (CGFloat, CGFloat) {
-        // Zen mode: all motion at ~10% of original, glacial speeds
-        let intensity: CGFloat = 0.1
+    /// Grid-based with heavy jitter and ~50% skip
+    private func scatteredGrid(count: Int, size: CGSize, config: PatternConfig, rng: inout SeededRNG) -> [CGPoint] {
+        var points: [CGPoint] = []
+        let spacing = config.gridSpacing
+        let jitter = config.jitter
+        for gx in stride(from: spacing * 0.5, to: size.width + spacing, by: spacing) {
+            for gy in stride(from: spacing * 0.5, to: size.height + spacing, by: spacing) {
+                guard rng.chance(0.45) else { continue }
+                let x = gx + rng.nextFloat(in: (-jitter)...jitter)
+                let y = gy + rng.nextFloat(in: (-jitter)...jitter)
+                points.append(CGPoint(x: x, y: y))
+                if points.count >= count { return points }
+            }
+        }
+        return points
+    }
 
-        switch seed.ambientEffect {
-        case .breathe:
-            return (gx, gy)
-
-        case .flow:
-            let wx = sin(gy * 0.018 + t * 0.0075) * 3.5 * intensity
-            let wy = cos(gx * 0.015 + t * 0.006) * 2.8 * intensity
-            return (gx + wx, gy + wy)
-
-        case .ripple:
-            let dx = gx - cx
-            let dy = gy - cy
-            let dist = sqrt(dx * dx + dy * dy)
-            let wave = sin(dist * 0.04 - t * 0.006) * 3.0 * intensity
-            let normX = dist > 1 ? dx / dist : 0
-            let normY = dist > 1 ? dy / dist : 0
-            return (gx + normX * wave, gy + normY * wave)
-
-        case .twist:
-            let dx = gx - cx
-            let dy = gy - cy
-            let dist = sqrt(dx * dx + dy * dy)
-            let maxDist = sqrt(cx * cx + cy * cy)
-            let normalizedDist = dist / max(maxDist, 1)
-            let angle = sin(t * 0.005) * 0.007 * intensity * normalizedDist
-            let cosA = cos(angle)
-            let sinA = sin(angle)
-            let rx = cx + (dx * cosA - dy * sinA)
-            let ry = cy + (dx * sinA + dy * cosA)
-            return (rx, ry)
-
-        case .drift:
-            let wx = sin(t * 0.005) * 2.0 * intensity
-            let wy = cos(t * 0.0035) * 1.5 * intensity
-            let localX = sin(gy * 0.01 + t * 0.005) * 0.5 * intensity
-            let localY = cos(gx * 0.01 + t * 0.005) * 0.4 * intensity
-            return (gx + wx + localX, gy + wy + localY)
+    /// Fully random positions
+    private func freeScatter(count: Int, size: CGSize, rng: inout SeededRNG) -> [CGPoint] {
+        (0..<count).map { _ in
+            CGPoint(x: rng.nextFloat(in: 0...size.width),
+                    y: rng.nextFloat(in: 0...size.height))
         }
     }
 
-    // MARK: - Motion
+    /// Marks in concentric rings from center
+    private func radialBurst(count: Int, size: CGSize, rng: inout SeededRNG) -> [CGPoint] {
+        var points: [CGPoint] = []
+        let cx = size.width / 2, cy = size.height / 2
+        let maxR = sqrt(cx * cx + cy * cy)
+        let ringCount = 6 + rng.nextInt(6)  // 6-12 rings
+        let marksPerRing = count / ringCount
 
-    /// Compute the offset position for a sub-shape based on the world's motion style.
-    private func subShapePosition(
-        gx: CGFloat, gy: CGFloat, cx: CGFloat, cy: CGFloat,
-        index: Int, baseAngle: CGFloat,
-        separation: CGFloat, depth: CGFloat
-    ) -> (CGFloat, CGFloat) {
-
-        switch seed.motionStyle {
-        case .expand:
-            // Original: push outward at fixed angles
-            let angle = baseAngle
-            return (gx + cos(angle) * separation,
-                    gy + sin(angle) * separation)
-
-        case .spiral:
-            // Orbit while separating — angle rotates with depth
-            let angle = baseAngle + depth * seed.rotationSpeed
-            return (gx + cos(angle) * separation,
-                    gy + sin(angle) * separation)
-
-        case .wave:
-            // Sine-wave offset — each colour rides a different phase
-            let phase = CGFloat(index) * .pi * 2 / 3
-            let waveX = sin(gy * seed.waveFrequency + phase + depth * 0.1)
-                * seed.waveAmplitude * separation * 0.5
-            let waveY = cos(gx * seed.waveFrequency + phase + depth * 0.1)
-                * seed.waveAmplitude * separation * 0.3
-            let angle = baseAngle
-            return (gx + cos(angle) * separation + waveX,
-                    gy + sin(angle) * separation + waveY)
-
-        case .scatter:
-            // Pseudo-random per-dot direction (deterministic from position)
-            let hash = sin(gx * 127.1 + gy * 311.7 + CGFloat(index) * 73.3)
-            let angle = hash * .pi * 2
-            return (gx + cos(angle) * separation,
-                    gy + sin(angle) * separation)
-
-        case .bloom:
-            // Push away from screen center
-            let dx = gx - cx
-            let dy = gy - cy
-            let dist = max(sqrt(dx * dx + dy * dy), 1)
-            let normX = dx / dist
-            let normY = dy / dist
-            let spread = separation * (1 + CGFloat(index) * 0.3)
-            return (gx + normX * spread,
-                    gy + normY * spread)
+        for ring in 0..<ringCount {
+            let r = maxR * CGFloat(ring + 1) / CGFloat(ringCount + 1)
+            let jitter = rng.nextFloat(in: 5...15)
+            for _ in 0..<marksPerRing {
+                let angle = rng.nextFloat(in: 0...(CGFloat.pi * 2))
+                let rr = r + rng.nextFloat(in: (-jitter)...jitter)
+                points.append(CGPoint(x: cx + cos(angle) * rr,
+                                      y: cy + sin(angle) * rr))
+            }
         }
+        return points
+    }
+
+    /// Marks cluster along diagonal bands
+    private func diagonalBands(count: Int, size: CGSize, rng: inout SeededRNG) -> [CGPoint] {
+        var points: [CGPoint] = []
+        let bandCount = 4 + rng.nextInt(5)  // 4-8 bands
+        let bandWidth = rng.nextFloat(in: 20...50)
+        let diagonal = size.width + size.height
+        let bandSpacing = diagonal / CGFloat(bandCount + 1)
+
+        for band in 0..<bandCount {
+            let bandCenter = bandSpacing * CGFloat(band + 1)
+            let marksInBand = count / bandCount
+            for _ in 0..<marksInBand {
+                // Point along the diagonal line x + y = bandCenter, with jitter
+                let x = rng.nextFloat(in: (-20)...size.width + 20)
+                let targetY = bandCenter - x
+                let y = targetY + rng.nextFloat(in: (-bandWidth)...bandWidth)
+                points.append(CGPoint(x: x, y: y))
+            }
+        }
+        return points
+    }
+
+    /// Small random groups of marks
+    private func clusterLayout(count: Int, size: CGSize, rng: inout SeededRNG) -> [CGPoint] {
+        var points: [CGPoint] = []
+        let clusterCount = 5 + rng.nextInt(8)  // 5-12 clusters
+        let marksPerCluster = count / clusterCount
+
+        for _ in 0..<clusterCount {
+            let cx = rng.nextFloat(in: 0...size.width)
+            let cy = rng.nextFloat(in: 0...size.height)
+            let spread = rng.nextFloat(in: 20...60)
+
+            for _ in 0..<marksPerCluster {
+                let x = cx + rng.nextFloat(in: (-spread)...spread)
+                let y = cy + rng.nextFloat(in: (-spread)...spread)
+                points.append(CGPoint(x: x, y: y))
+            }
+        }
+        return points
+    }
+
+    /// Marks concentrate toward corners and edges
+    private func cornerBloom(count: Int, size: CGSize, rng: inout SeededRNG) -> [CGPoint] {
+        var points: [CGPoint] = []
+        let corners: [CGPoint] = [
+            CGPoint(x: 0, y: 0),
+            CGPoint(x: size.width, y: 0),
+            CGPoint(x: 0, y: size.height),
+            CGPoint(x: size.width, y: size.height)
+        ]
+
+        for _ in 0..<count {
+            let corner = corners[rng.nextInt(4)]
+            let spread = rng.nextFloat(in: 40...180)
+            let x = corner.x + rng.nextFloat(in: (-spread)...spread)
+            let y = corner.y + rng.nextFloat(in: (-spread)...spread)
+            points.append(CGPoint(x: x, y: y))
+        }
+        return points
     }
 }

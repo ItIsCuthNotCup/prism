@@ -8,11 +8,11 @@ struct ScoreView: View {
         HStack(spacing: 32) {
             VStack(spacing: 2) {
                 Text("SCORE")
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .font(.system(size: 12, weight: .bold, design: .serif))
                     .foregroundStyle(Color(hex: 0x8D99AE))
                     .tracking(2)
                 Text("\(score)")
-                    .font(.system(size: 28, weight: .heavy, design: .rounded))
+                    .font(.system(size: 28, weight: .heavy, design: .serif))
                     .foregroundStyle(.white)
                     .contentTransition(.numericText())
                     .animation(.spring(response: 0.3), value: score)
@@ -20,12 +20,12 @@ struct ScoreView: View {
 
             VStack(spacing: 2) {
                 Text("BEST")
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .font(.system(size: 12, weight: .bold, design: .serif))
                     .foregroundStyle(Color(hex: 0x8D99AE))
                     .tracking(2)
                 Text("\(highScore)")
-                    .font(.system(size: 28, weight: .heavy, design: .rounded))
-                    .foregroundStyle(Color(hex: 0xF4D35E))
+                    .font(.system(size: 28, weight: .heavy, design: .serif))
+                    .foregroundStyle(Color(hex: 0x8D99AE))
                     .contentTransition(.numericText())
                     .animation(.spring(response: 0.3), value: highScore)
             }
