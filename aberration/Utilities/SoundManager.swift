@@ -241,54 +241,48 @@ final class SoundManager {
         }
     }
 
-    /// Synthesize a short cat meow — frequency sweep with formant-like harmonics
+    /// Synthesize a soft "mew" — gentle, short, quieter than before
     private func makeMeow() -> AVAudioPCMBuffer {
-        let duration = 0.35
+        let duration = 0.22  // shorter — a quick "mew" not a full meow
         let frameCount = AVAudioFrameCount(duration * sampleRate)
         let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount)!
         buffer.frameLength = frameCount
         let data = buffer.floatChannelData![0]
 
-        let volume = 0.30
+        let volume = 0.12  // much quieter
 
         for i in 0..<Int(frameCount) {
             let t = Double(i) / sampleRate
             let progress = t / duration  // 0→1
 
-            // Frequency envelope: rise then fall (meow shape)
+            // Frequency envelope: gentle rise then fall (soft mew shape)
             let freq: Double
-            if progress < 0.3 {
-                // Rise: 700 → 1000 Hz
-                freq = 700.0 + (300.0 * progress / 0.3)
+            if progress < 0.25 {
+                // Rise: 600 → 850 Hz (less extreme range)
+                freq = 600.0 + (250.0 * progress / 0.25)
             } else {
-                // Fall: 1000 → 550 Hz
-                freq = 1000.0 - (450.0 * (progress - 0.3) / 0.7)
+                // Fall: 850 → 500 Hz
+                freq = 850.0 - (350.0 * (progress - 0.25) / 0.75)
             }
 
-            // Amplitude envelope: quick attack, sustain, fade
+            // Amplitude envelope: soft attack, quick fade
             var env: Double
-            if progress < 0.05 {
-                env = progress / 0.05
-            } else if progress < 0.7 {
+            if progress < 0.08 {
+                env = progress / 0.08
+            } else if progress < 0.4 {
                 env = 1.0
             } else {
-                env = pow(1.0 - (progress - 0.7) / 0.3, 2.0)
+                env = pow(1.0 - (progress - 0.4) / 0.6, 2.5)  // faster fade
             }
 
-            // Phase accumulation (needed for smooth frequency sweep)
-            // Approximate: use instantaneous frequency
             let phase = 2.0 * .pi * freq * t
 
-            // Nasal/formant timbre: strong odd harmonics
+            // Warmer timbre: less nasal, reduced harmonics
             let fundamental = sin(phase)
-            let h3 = sin(phase * 3.0) * 0.35   // strong 3rd harmonic = nasal
-            let h5 = sin(phase * 5.0) * 0.15   // 5th harmonic
-            let h7 = sin(phase * 7.0) * 0.05   // subtle 7th
+            let h3 = sin(phase * 3.0) * 0.15   // softer 3rd harmonic
+            let h5 = sin(phase * 5.0) * 0.04   // barely there
 
-            // Add slight vibrato (cat vocal wobble)
-            let vibrato = sin(2.0 * .pi * 18.0 * t) * 0.03
-
-            let sample = (fundamental + h3 + h5 + h7) * (1.0 + vibrato) * env * volume
+            let sample = (fundamental + h3 + h5) * env * volume
             data[i] = Float(sample)
         }
         return buffer
