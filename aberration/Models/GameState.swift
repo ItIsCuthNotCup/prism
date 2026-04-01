@@ -14,22 +14,11 @@ class GameState {
     }
     var isGameOver: Bool = false
 
-    // MARK: - Timer
+    // MARK: - Timer (disabled — zen mode)
     var timeRemaining: Double = 0
     var timerLimit: Double = 0
     var timerActive: Bool = false
-    private var timerTask: Task<Void, Never>? = nil
-
-    /// Whether the current round has a timer (round 15+)
-    var hasTimer: Bool { round >= 15 }
-
-    /// Calculate time limit for the current round
-    private var timeLimitForRound: Double {
-        guard round >= 15 else { return 0 }
-        // 30s at round 15, -5s every 5 rounds, min 5s
-        let reduction = ((round - 15) / 5) * 5
-        return max(5, 30 - Double(reduction))
-    }
+    var hasTimer: Bool { false }
     var selectedPosition: GridPosition? = nil
     var isProcessing: Bool = false
     var showRoundComplete: Bool = false
@@ -118,7 +107,7 @@ class GameState {
         return 4
     }
 
-    // MARK: - Poison Tiles
+    // MARK: - Poison Tiles (disabled — zen mode)
 
     var poisonPositions: Set<GridPosition> = []
     var showPoisonIntro: Bool = false
@@ -127,10 +116,7 @@ class GameState {
         set { UserDefaults.standard.set(newValue, forKey: "blent_seen_poison") }
     }
 
-    var poisonTileCount: Int {
-        if round <= 10 { return 0 }
-        return 1 + (round - 11) / 5
-    }
+    var poisonTileCount: Int { 0 }
 
     // MARK: - Achievement Unlock Tracking
 
@@ -203,17 +189,17 @@ class GameState {
         }
     }
 
-    /// Show each unlocked achievement as a sequential toast with meow
+    /// Show each unlocked achievement as a sequential toast with meow (max 3 shown)
     private func showAchievementToasts(_ achievements: [StatsManager.Achievement]) {
+        let toShow = Array(achievements.prefix(3))
         Task {
-            for achievement in achievements {
+            for achievement in toShow {
                 achievementToast = achievement
                 SoundManager.shared.playMeow()
                 HapticManager.tilePlaced()
                 try? await Task.sleep(for: .milliseconds(1500))
                 achievementToast = nil
-                // Brief gap between multiple toasts
-                if achievements.count > 1 {
+                if toShow.count > 1 {
                     try? await Task.sleep(for: .milliseconds(200))
                 }
             }
@@ -233,10 +219,26 @@ class GameState {
 
     // MARK: - Difficulty Scaling
 
-    var maxDepth: Int {
-        if round <= 3 { return 1 }
-        if round <= 9 { return 2 }
-        return 3
+    /// Maximum target depth for the current tier (what colors can be targets)
+    var maxTargetDepth: Int {
+        if round <= 10 { return 1 }   // Tier 1: primaries → secondaries
+        if round <= 20 { return 2 }   // Tier 2: + depth 2 targets
+        if round <= 30 { return 3 }   // Tier 3: + depth 3 targets
+        return 4                       // Tier 4+: full 48-color palette
+    }
+
+    /// Maximum tile depth for distractors (what colors appear on the board)
+    var maxTileDepth: Int {
+        if round <= 10 { return 0 }   // Only primaries as distractors
+        if round <= 20 { return 1 }   // + secondaries
+        if round <= 30 { return 2 }   // + depth 2 colors
+        if round <= 40 { return 3 }   // + depth 3 colors
+        return 4                       // Full palette
+    }
+
+    /// Colors available as distractor tiles for the current tier
+    var availableDistractorColors: [PrismColor] {
+        PrismColor.allColors.filter { $0.depth <= maxTileDepth }
     }
 
     var distractorCount: Int {
@@ -339,24 +341,9 @@ class GameState {
             return
         }
 
-        tapPulseID += 1
+        // tapPulseID += 1  // disabled — zen mode (no per-tap background jitter)
 
-        // Poison tile = instant game over
-        if poisonPositions.contains(pos) {
-            selectedPosition = nil
-            stopTimer()
-            computeNearMissStats()
-            if round > bestRound { bestRound = round }
-            updateHighScore()
-            recordDeath()
-            isGameOver = true
-            captureNewAchievements {
-                StatsManager.shared.recordGameOver(round: round, blends: totalBlendsThisGame, score: score, diedToPoison: true)
-            }
-            HapticManager.gameOver()
-            SoundManager.shared.playGameOver()
-            return
-        }
+        // Poison tiles disabled — zen mode
 
         if showMergeHint {
             hintPositions = []
@@ -418,6 +405,7 @@ class GameState {
             goldenPositions.remove(posB)
             if usedGolden {
                 multiplierRoundsLeft = 3
+                StatsManager.shared.recordGoldenTileUsed()
             }
 
             blendingPositions = nil
@@ -429,6 +417,9 @@ class GameState {
 
             // Check if result matches current target
             if let target = targetColor, result == target {
+                // Stop the timer immediately on match — prevents expiry during overlays
+                stopTimer()
+
                 matchedPosition = posA
                 let roundBonus = round * 50 * scoreMultiplier
                 score += roundBonus
@@ -472,6 +463,12 @@ class GameState {
                     showSubTargetComplete = false
                     comboMessage = nil
 
+                    // Safety: if game over fired during overlay, don't advance
+                    guard !isGameOver else {
+                        isProcessing = false
+                        return
+                    }
+
                     advanceToNextTarget()
                     isProcessing = false
                 } else {
@@ -509,7 +506,7 @@ class GameState {
                     // Auto-dismiss after full duration if not tapped
                     try? await Task.sleep(for: .milliseconds(isMilestone ? 1200 : 600))
 
-                    if showRoundComplete {
+                    if showRoundComplete && !isGameOver {
                         showRoundComplete = false
                         showMilestone = false
                         comboMessage = nil
@@ -521,12 +518,12 @@ class GameState {
                 // Near-miss proximity feedback
                 if let target = targetColor {
                     let diff = abs(result.wheelIndex - target.wheelIndex)
-                    let dist = min(diff, 24 - diff)
+                    let dist = min(diff, PrismColor.wheelSize - diff)
                     let hint: ProximityHint? = switch dist {
-                        case 1:    .hot
-                        case 2:    .warm
-                        case 3...4: .close
-                        default:   nil
+                        case 1...2:  .hot
+                        case 3...4:  .warm
+                        case 5...8:  .close
+                        default:     nil
                     }
                     if let hint {
                         proximityHint = hint
@@ -625,13 +622,8 @@ class GameState {
         let isBreather = round > 4 && !lastRoundWasBreather && Double.random(in: 0...1) < 0.20
         lastRoundWasBreather = isBreather
 
-        // ── Background frenzy ──
-        // ~20% chance to trigger after round 5, lasts 3 rounds, can't re-trigger while active
-        if backgroundFrenzyRoundsLeft > 0 {
-            backgroundFrenzyRoundsLeft -= 1
-        } else if round > 5 && Double.random(in: 0...1) < 0.20 {
-            backgroundFrenzyRoundsLeft = 3
-        }
+        // Background frenzy disabled — zen mode
+        backgroundFrenzyRoundsLeft = 0
 
         // ── DDA: invisible difficulty assist for struggling players ──
         // Active after 2+ consecutive deaths. Adds one helpful tile to the board.
@@ -639,7 +631,7 @@ class GameState {
         ddaActive = ddaHelp
 
         // ── Target depth: breather rounds use simpler colors ──
-        let effectiveMaxDepth = isBreather ? min(maxDepth, 1) : maxDepth
+        let effectiveMaxDepth = isBreather ? min(maxTargetDepth, 1) : maxTargetDepth
 
         // Determine how many targets this round
         let targetCount = isBreather ? 1 : targetCountForRound
@@ -692,41 +684,23 @@ class GameState {
         numDistractors = min(numDistractors, emptyPositions().count)
         for _ in 0..<numDistractors {
             if let pos = emptyPositions().randomElement() {
-                grid[pos.row][pos.col] = PrismColor.primaries.randomElement()!
+                grid[pos.row][pos.col] = availableDistractorColors.randomElement()!
             }
         }
 
-        // Spawn poison tiles (breather reduces by 1)
+        // Poison tiles disabled — zen mode
         poisonPositions = []
-        let effectivePoison = isBreather ? max(0, poisonTileCount - 1) : poisonTileCount
-        if effectivePoison > 0 {
-            // Show intro popup the first time
-            if !hasSeenPoisonIntro && poisonTileCount > 0 {
-                showPoisonIntro = true
-                hasSeenPoisonIntro = true
-            }
-
-            let numPoison = min(effectivePoison, emptyPositions().count)
-            let poisonCandidates = PrismColor.allColors.filter { !$0.isPrimary }
-            for _ in 0..<numPoison {
-                if let pos = emptyPositions().randomElement(),
-                   let poison = poisonCandidates.randomElement() {
-                    grid[pos.row][pos.col] = poison
-                    poisonPositions.insert(pos)
-                }
-            }
-        }
 
         // First round: highlight ingredient tiles
         // (hintPositions set in spawnIngredientsForCurrentTarget for round 1)
 
         // ── Golden tiles: ~15% chance per round after round 3, spawn 1 on a random existing tile ──
         if round > 3 && !isBreather && Double.random(in: 0...1) < 0.15 {
-            // Pick a random occupied non-poison tile to make golden
+            // Pick a random occupied tile to make golden
             let occupiedPositions = (0..<gridSize).flatMap { r in
                 (0..<gridSize).compactMap { c -> GridPosition? in
                     let pos = GridPosition(row: r, col: c)
-                    guard grid[r][c] != nil, !poisonPositions.contains(pos) else { return nil }
+                    guard grid[r][c] != nil else { return nil }
                     return pos
                 }
             }
@@ -786,6 +760,9 @@ class GameState {
         undoGrid = nil
         undoScore = nil
         undoUsedThisRound = false
+
+        // Restart the timer for the next sub-target so the player gets fresh time
+        startTimer()
 
         spawnIngredientsForCurrentTarget()
     }
@@ -873,11 +850,11 @@ class GameState {
         }
 
         // Find closest color on the board to the target (by wheel distance)
-        var minDist = 24
+        var minDist = PrismColor.wheelSize
         var closest: PrismColor? = nil
         for color in boardColors {
             let diff = abs(color.wheelIndex - target.wheelIndex)
-            let dist = min(diff, 24 - diff)
+            let dist = min(diff, PrismColor.wheelSize - diff)
             if dist < minDist {
                 minDist = dist
                 closest = color
@@ -892,7 +869,7 @@ class GameState {
             for j in (i + 1)..<boardColors.count {
                 let result = PrismColor.mix(boardColors[i], boardColors[j])
                 let resultDiff = abs(result.wheelIndex - target.wheelIndex)
-                let resultDist = min(resultDiff, 24 - resultDiff)
+                let resultDist = min(resultDiff, PrismColor.wheelSize - resultDiff)
                 if resultDist < minDist {
                     helpfulBlends += 1
                 }
@@ -964,6 +941,7 @@ class GameState {
     func useLife() {
         guard canUseLife else { return }
         lives -= 1
+        StatsManager.shared.recordLifeUsed()
         // Reset the bonus-life streak — must go another clean 10 from here
         livesLostInStreak = 0
         streakCheckpointRound = round
@@ -991,53 +969,17 @@ class GameState {
         let roundsSinceCheckpoint = round - streakCheckpointRound
         if roundsSinceCheckpoint >= 10 && livesLostInStreak == 0 {
             lives += 1
+            StatsManager.shared.recordBonusLifeEarned()
             streakCheckpointRound = round
             // Reset for next streak
             livesLostInStreak = 0
         }
     }
 
-    // MARK: - Timer
+    // MARK: - Timer (disabled — zen mode)
 
-    func startTimer() {
-        stopTimer()
-        guard hasTimer else { return }
-        let limit = timeLimitForRound
-        timerLimit = limit
-        timeRemaining = limit
-        timerActive = true
-        timerTask = Task { @MainActor [weak self] in
-            while let self = self, self.timerActive, self.timeRemaining > 0 {
-                try? await Task.sleep(for: .milliseconds(100))
-                guard self.timerActive else { break }
-                self.timeRemaining = max(0, self.timeRemaining - 0.1)
-                if self.timeRemaining <= 0 {
-                    self.timerExpired()
-                }
-            }
-        }
-    }
-
-    func stopTimer() {
-        timerActive = false
-        timerTask?.cancel()
-        timerTask = nil
-    }
-
-    private func timerExpired() {
-        stopTimer()
-        guard !isGameOver else { return }
-        computeNearMissStats()
-        if round > bestRound { bestRound = round }
-        updateHighScore()
-        recordDeath()
-        isGameOver = true
-        captureNewAchievements {
-            StatsManager.shared.recordGameOver(round: self.round, blends: self.totalBlendsThisGame, score: self.score, diedToPoison: false)
-        }
-        HapticManager.gameOver()
-        SoundManager.shared.playGameOver()
-    }
+    func startTimer() { /* timer removed */ }
+    func stopTimer() { /* timer removed */ }
 
     func newGame() {
         stopTimer()
@@ -1083,6 +1025,7 @@ class GameState {
         timeRemaining = 0
         timerLimit = 0
         timerActive = false
+        // Timer system disabled — calls to startTimer()/stopTimer() are no-ops
         // Note: consecutiveDeaths NOT reset — persists across games for DDA
         roundCompleteCanDismiss = false
         tunnelDepth = 0

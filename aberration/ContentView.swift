@@ -19,7 +19,7 @@ struct PrismGameView: View {
             // Cap total content width for iPad; on iPhone this is just geo.size.width
             let maxContentWidth: CGFloat = min(geo.size.width, 500)
             let contentPadding: CGFloat = 16          // outer margin each side
-            let gridInset: CGFloat = 12               // glass container inner padding each side
+            let gridInset: CGFloat = 4                // glass container inner padding each side
             let spacing: CGFloat = 5
             // Cell size = (contentWidth - outer padding - grid inset - inter-cell spacing) / columns
             let cellsArea = maxContentWidth - contentPadding * 2 - gridInset * 2
@@ -43,7 +43,7 @@ struct PrismGameView: View {
                             } label: {
                                 Image(systemName: "gearshape")
                                     .font(.system(size: 17, weight: .medium))
-                                    .foregroundStyle(Color(hex: 0xBBBBC8))
+                                    .foregroundStyle(Color(hex: 0x555555))
                             }
                         }
                     }
@@ -173,12 +173,9 @@ struct PrismGameView: View {
                         .transition(.scale.combined(with: .opacity))
                         .animation(.spring(response: 0.4), value: target.wheelIndex)
                     }
-                    // Timer bar (round 15+)
-                    if game.hasTimer && game.timerLimit > 0 {
-                        timerBar
-                    }
+                    // Timer removed — zen mode
                   } // end top container
-                  .padding(.horizontal, 10)
+                  .padding(.horizontal, 4)
                   .padding(.vertical, 8)
                   .background(glassCard(cornerRadius: 20))
 
@@ -203,7 +200,7 @@ struct PrismGameView: View {
                                     Text("Undo")
                                 }
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(Color(hex: 0x555555))
+                                .foregroundStyle(Color(hex: 0x2A2A2A))
                                 .padding(.horizontal, 18)
                                 .padding(.vertical, 10)
                                 .background(
@@ -211,7 +208,7 @@ struct PrismGameView: View {
                                         .fill(.white.opacity(0.8))
                                         .overlay(
                                             Capsule()
-                                                .strokeBorder(.white, lineWidth: 0.5)
+                                                .strokeBorder(Color(hex: 0x2A2A2A).opacity(0.2), lineWidth: 1)
                                         )
                                         .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
                                 )
@@ -233,7 +230,7 @@ struct PrismGameView: View {
                         } label: {
                             Text("New Game")
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(Color(hex: 0x555555))
+                                .foregroundStyle(Color(hex: 0x2A2A2A))
                                 .padding(.horizontal, 18)
                                 .padding(.vertical, 10)
                                 .background(
@@ -241,7 +238,7 @@ struct PrismGameView: View {
                                         .fill(.white.opacity(0.8))
                                         .overlay(
                                             Capsule()
-                                                .strokeBorder(.white, lineWidth: 0.5)
+                                                .strokeBorder(Color(hex: 0x2A2A2A).opacity(0.2), lineWidth: 1)
                                         )
                                         .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
                                 )
@@ -249,10 +246,10 @@ struct PrismGameView: View {
                     }
                     .padding(.top, 4)
                     .padding(.bottom, 6)
-                    .opacity(game.showRoundComplete || game.isGameOver || game.showSubTargetComplete || game.showPoisonIntro ? 0 : 1)
+                    .opacity(game.showRoundComplete || game.isGameOver || game.showSubTargetComplete ? 0 : 1)
                     .animation(.easeInOut(duration: 0.2), value: game.canUndo)
                   } // end bottom container
-                  .padding(.horizontal, 10)
+                  .padding(.horizontal, 4)
                   .padding(.vertical, 8)
                   .background(glassCard(cornerRadius: 20))
                 }
@@ -294,11 +291,6 @@ struct PrismGameView: View {
                             game.newGame()
                         }
                     }
-                }
-
-                // Poison intro overlay
-                if game.showPoisonIntro {
-                    poisonIntroOverlay
                 }
 
                 // Achievement toast (top-right corner)
@@ -390,35 +382,6 @@ struct PrismGameView: View {
                 .contentTransition(.numericText())
                 .animation(.spring(response: 0.3), value: value)
         }
-    }
-
-    // MARK: - Timer Bar
-
-    private var timerBar: some View {
-        let fraction = game.timerLimit > 0 ? game.timeRemaining / game.timerLimit : 0
-        let color: Color = fraction > 0.4 ? Color(hex: 0x2A9D8F) :
-                           fraction > 0.2 ? Color(hex: 0xF59E0B) :
-                           Color(hex: 0xE63946)
-        return VStack(spacing: 2) {
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color(hex: 0xEEEEEE))
-                    Capsule()
-                        .fill(color)
-                        .frame(width: geo.size.width * max(0, fraction))
-                        .animation(.linear(duration: 0.1), value: game.timeRemaining)
-                }
-            }
-            .frame(height: 5)
-            .padding(.horizontal, 8)
-
-            Text("\(Int(ceil(game.timeRemaining)))s")
-                .font(.system(size: 10, weight: .bold, design: .rounded))
-                .foregroundStyle(color)
-                .monospacedDigit()
-        }
-        .padding(.top, 4)
     }
 
     // MARK: - Lives Display
@@ -659,12 +622,23 @@ struct PrismGameView: View {
 
     private func achievementToastView(_ achievement: StatsManager.Achievement) -> some View {
         HStack(spacing: 10) {
-            Image(achievement.imageName)
-                .resizable()
-                .interpolation(.none)
-                .scaledToFill()
-                .frame(width: 44, height: 44)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+            if UIImage(named: achievement.imageName) != nil {
+                Image(achievement.imageName)
+                    .resizable()
+                    .interpolation(.none)
+                    .scaledToFill()
+                    .frame(width: 44, height: 44)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+            } else {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color(hue: achievement.hue, saturation: 0.4, brightness: 0.9))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 20))
+                        .foregroundStyle(Color(hue: achievement.hue, saturation: 0.6, brightness: 0.5))
+                }
+            }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Achievement!")
@@ -691,72 +665,6 @@ struct PrismGameView: View {
         )
     }
 
-    // MARK: - Poison Intro Overlay
-
-    private var poisonIntroOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.3)
-                .ignoresSafeArea()
-
-            VStack(spacing: 20) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 40))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [Color(hex: 0xF59E0B), Color(hex: 0xF97316)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-
-                Text("MIXED TILES")
-                    .font(.system(size: 22, weight: .black, design: .rounded))
-                    .foregroundStyle(Color(hex: 0x2A2A3A))
-                    .tracking(4)
-
-                VStack(spacing: 8) {
-                    Text("Dangerous tiles now appear on the board.")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(Color(hex: 0x666666))
-                        .multilineTextAlignment(.center)
-
-                    Text("Tap one and it's game over.")
-                        .font(.system(size: 14, weight: .regular))
-                        .foregroundStyle(Color(hex: 0x999999))
-                        .multilineTextAlignment(.center)
-                }
-                .padding(.horizontal, 8)
-
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        game.dismissPoisonIntro()
-                    }
-                } label: {
-                    Text("Got it")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 36)
-                        .padding(.vertical, 12)
-                        .background(
-                            Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color(hex: 0xF59E0B), Color(hex: 0xF97316)],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                        )
-                }
-                .padding(.top, 4)
-            }
-            .padding(.horizontal, 32)
-            .padding(.vertical, 28)
-            .background(glassCard(cornerRadius: 28))
-        }
-        .transition(.opacity)
-    }
-
     // MARK: - Settings Sheet
 
     private var settingsView: some View {
@@ -781,7 +689,7 @@ struct PrismGameView: View {
                             .foregroundStyle(Color(hex: 0x2A2A3A))
                         Spacer()
                         let count = StatsManager.shared.unlockedBadges.count
-                        Text("\(count)/25")
+                        Text("\(count)/\(StatsManager.allAchievements.count)")
                             .font(.system(size: 14, weight: .medium))
                             .foregroundStyle(Color(hex: 0xAAAAAA))
                         Image(systemName: "chevron.right")
@@ -801,8 +709,6 @@ struct PrismGameView: View {
                              text: "You start with 3 lives. Spend one to retry a failed round")
                     rulesRow(icon: "heart.circle.fill", color: Color(hex: 0xA080E0),
                              text: "Survive 10 rounds without using a life to earn a bonus life")
-                    rulesRow(icon: "exclamationmark.triangle.fill", color: Color(hex: 0x8B5CF6),
-                             text: "Poison tiles appear after Round 10 — tapping one ends the game")
                     rulesRow(icon: "arrow.counterclockwise", color: Color(hex: 0xF59E0B),
                              text: "Use undo to take back your last blend (once per round)")
                 } header: {
@@ -849,10 +755,10 @@ struct PrismGameView: View {
                 VStack(spacing: 16) {
                     ChromaHeader(fontSize: 52)
 
-                    Text("CHROMATOSE")
-                        .font(.system(size: 32, weight: .heavy))
+                    Text("Stillhue")
+                        .font(.system(size: 36, weight: .regular, design: .serif))
                         .foregroundStyle(Color(hex: 0x2A2A2A))
-                        .tracking(2)
+                        .tracking(1)
                 }
 
                 Text("Blend colors to match the target.")
@@ -870,21 +776,19 @@ struct PrismGameView: View {
                     showStartScreen = false
                 } label: {
                     Text("Play")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(.white)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(Color(hex: 0x2A2A2A))
                         .tracking(4)
                         .padding(.horizontal, 52)
                         .padding(.vertical, 16)
                         .background(
                             Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color(hex: 0x457B9D), Color(hex: 0x2A9D8F)],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
+                                .fill(.white.opacity(0.8))
+                                .overlay(
+                                    Capsule()
+                                        .strokeBorder(Color(hex: 0x2A2A2A).opacity(0.2), lineWidth: 1)
                                 )
-                                .shadow(color: Color(hex: 0x457B9D).opacity(0.3), radius: 16, y: 6)
+                                .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
                         )
                 }
                 .padding(.bottom, 60)

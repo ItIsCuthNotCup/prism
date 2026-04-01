@@ -5,7 +5,7 @@ struct GridView: View {
     let cellSize: CGFloat
 
     private let spacing: CGFloat = 5
-    private let inset: CGFloat = 12
+    private let inset: CGFloat = 4
 
     var body: some View {
         let columns = Array(

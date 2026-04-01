@@ -2,7 +2,7 @@
 //  AchievementsView.swift
 //  Chromatose
 //
-//  5x5 grid of achievement tiles styled like the game board.
+//  7×5 scrollable grid of achievement tiles styled like the game board.
 //  Each tile shows a cat face that matches the achievement mood.
 //  Locked tiles are greyed out; unlocked tiles glow with color.
 //
@@ -43,47 +43,50 @@ struct AchievementsView: View {
                         .foregroundStyle(Color(hex: 0xAAAAAA))
                         .tracking(4)
 
-                    // 5x5 Grid
+                    // Scrollable 5-column grid
                     GeometryReader { geo in
                         let totalSpacing = spacing * CGFloat(columns - 1)
                         let padding: CGFloat = 20
                         let available = min(geo.size.width - padding * 2, 400)
                         let tileSize = (available - totalSpacing) / CGFloat(columns)
-
                         let gridWidth = available
+                        let rowCount = (achievements.count + columns - 1) / columns
 
-                        VStack(spacing: spacing) {
-                            ForEach(0..<5, id: \.self) { row in
-                                HStack(spacing: spacing) {
-                                    ForEach(0..<5, id: \.self) { col in
-                                        let index = row * 5 + col
-                                        if index < achievements.count {
-                                            let achievement = achievements[index]
-                                            let isUnlocked = unlocked.contains(achievement.id)
+                        ScrollView(.vertical, showsIndicators: false) {
+                            VStack(spacing: spacing) {
+                                ForEach(0..<rowCount, id: \.self) { row in
+                                    HStack(spacing: spacing) {
+                                        ForEach(0..<columns, id: \.self) { col in
+                                            let index = row * columns + col
+                                            if index < achievements.count {
+                                                let achievement = achievements[index]
+                                                let isUnlocked = unlocked.contains(achievement.id)
 
-                                            achievementTile(
-                                                achievement: achievement,
-                                                isUnlocked: isUnlocked,
-                                                size: tileSize
-                                            )
-                                            .onTapGesture {
-                                                withAnimation(.spring(response: 0.3)) {
-                                                    if selectedAchievement?.id == achievement.id {
-                                                        selectedAchievement = nil
-                                                    } else {
-                                                        selectedAchievement = achievement
+                                                achievementTile(
+                                                    achievement: achievement,
+                                                    isUnlocked: isUnlocked,
+                                                    size: tileSize
+                                                )
+                                                .onTapGesture {
+                                                    withAnimation(.spring(response: 0.3)) {
+                                                        if selectedAchievement?.id == achievement.id {
+                                                            selectedAchievement = nil
+                                                        } else {
+                                                            selectedAchievement = achievement
+                                                        }
                                                     }
                                                 }
+                                            } else {
+                                                Color.clear.frame(width: tileSize, height: tileSize)
                                             }
                                         }
                                     }
                                 }
                             }
+                            .frame(width: gridWidth)
+                            .frame(maxWidth: .infinity)
                         }
-                        .frame(width: gridWidth)
-                        .frame(maxWidth: .infinity)
                     }
-                    .frame(height: 400)
 
                     // Selected achievement detail
                     if let selected = selectedAchievement {
@@ -120,13 +123,31 @@ struct AchievementsView: View {
 
         return ZStack {
             if isUnlocked {
-                // Show the pixel art sprite — it already has its own rounded background
-                Image(achievement.imageName)
-                    .resizable()
-                    .interpolation(.none)
-                    .scaledToFill()
-                    .frame(width: size, height: size)
-                    .clipShape(RoundedRectangle(cornerRadius: size * 0.18))
+                // Show the pixel art sprite, or a colored placeholder if image is missing
+                if UIImage(named: achievement.imageName) != nil {
+                    Image(achievement.imageName)
+                        .resizable()
+                        .interpolation(.none)
+                        .scaledToFill()
+                        .frame(width: size, height: size)
+                        .clipShape(RoundedRectangle(cornerRadius: size * 0.18))
+                } else {
+                    // Fallback: colored tile with checkmark
+                    RoundedRectangle(cornerRadius: size * 0.18)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(hue: achievement.hue, saturation: 0.4, brightness: 0.95),
+                                    Color(hue: achievement.hue, saturation: 0.5, brightness: 0.85)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: size * 0.38, weight: .medium))
+                        .foregroundStyle(Color(hue: achievement.hue, saturation: 0.6, brightness: 0.5))
+                }
 
                 // Selection border
                 if isSelected {
@@ -183,12 +204,23 @@ struct AchievementsView: View {
     private func achievementDetail(_ achievement: StatsManager.Achievement, isUnlocked: Bool) -> some View {
         HStack(spacing: 16) {
             if isUnlocked {
-                Image(achievement.imageName)
-                    .resizable()
-                    .interpolation(.none)
-                    .scaledToFit()
-                    .frame(width: 64, height: 64)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                if UIImage(named: achievement.imageName) != nil {
+                    Image(achievement.imageName)
+                        .resizable()
+                        .interpolation(.none)
+                        .scaledToFit()
+                        .frame(width: 64, height: 64)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                } else {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(hue: achievement.hue, saturation: 0.4, brightness: 0.9))
+                            .frame(width: 64, height: 64)
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 28))
+                            .foregroundStyle(Color(hue: achievement.hue, saturation: 0.6, brightness: 0.5))
+                    }
+                }
             }
 
             VStack(alignment: isUnlocked ? .leading : .center, spacing: 6) {
@@ -238,7 +270,7 @@ struct AchievementsView: View {
             footerStat(label: "GAMES", value: "\(stats.totalGames)")
             footerStat(label: "BLENDS", value: "\(stats.totalBlends)")
             footerStat(label: "BEST", value: "R\(stats.bestRound)")
-            footerStat(label: "COLORS", value: "\(stats.discoveredColors.count)/24")
+            footerStat(label: "COLORS", value: "\(stats.discoveredColors.count)/\(PrismColor.wheelSize)")
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 16)

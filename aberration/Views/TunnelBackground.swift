@@ -65,69 +65,32 @@ private struct WorldSeed {
                          waveAmplitude: wAmp, waveFrequency: wFreq)
     }
 
-    // Palette generators — always 3 colours, varied hue strategies
+    // 10 curated vibrant zen palettes — exact hex values from design spec.
+    private static let zenPalettes: [[(r: Double, g: Double, b: Double)]] = [
+        // 1. Fresh Lagoon (#5ED3D1, #8AE6CF, #C7F9CC)
+        [(0.369, 0.827, 0.820), (0.541, 0.902, 0.812), (0.780, 0.976, 0.800)],
+        // 2. Sakura Glow (#FF8FAB, #FFB3C6, #FFC8DD)
+        [(1.000, 0.561, 0.671), (1.000, 0.702, 0.776), (1.000, 0.784, 0.867)],
+        // 3. Citrus Calm (#FFD166, #F4A261, #E9EDC9)
+        [(1.000, 0.820, 0.400), (0.957, 0.635, 0.380), (0.914, 0.929, 0.788)],
+        // 4. Tropical Zen (#06D6A0, #118AB2, #73C2FB)
+        [(0.024, 0.839, 0.627), (0.067, 0.541, 0.698), (0.451, 0.761, 0.984)],
+        // 5. Lavender Pop (#B388EB, #DDBDF1, #FFC6FF)
+        [(0.702, 0.533, 0.922), (0.867, 0.741, 0.945), (1.000, 0.776, 1.000)],
+        // 6. Soft Coral Reef (#FF6F61, #FF9A8B, #FCD5CE)
+        [(1.000, 0.435, 0.380), (1.000, 0.604, 0.545), (0.988, 0.835, 0.808)],
+        // 7. Modern Pastel Neon (#80FFDB, #64DFDF, #48BFE3)
+        [(0.502, 1.000, 0.859), (0.392, 0.875, 0.875), (0.282, 0.749, 0.890)],
+        // 8. Matcha Energy (#90DB3A, #B5E48C, #D9ED92)
+        [(0.565, 0.859, 0.227), (0.710, 0.894, 0.549), (0.851, 0.929, 0.573)],
+        // 9. Sunset Sorbet (#FF7F51, #FFB703, #FB8500)
+        [(1.000, 0.498, 0.318), (1.000, 0.718, 0.012), (0.984, 0.522, 0.000)],
+        // 10. Blueberry Cream (#4EA8DE, #72EFDD, #CDB4DB)
+        [(0.306, 0.659, 0.871), (0.447, 0.937, 0.867), (0.804, 0.706, 0.859)],
+    ]
+
     private static func randomPalette() -> [(r: Double, g: Double, b: Double)] {
-        let strategy = Int.random(in: 0...5)
-        switch strategy {
-        case 0: return triadic()
-        case 1: return complementary()
-        case 2: return analogous()
-        case 3: return neon()
-        case 4: return pastel()
-        default: return classic()
-        }
-    }
-
-    private static func hsl(_ h: Double, _ s: Double, _ l: Double)
-        -> (r: Double, g: Double, b: Double) {
-        let c = (1 - abs(2 * l - 1)) * s
-        let hp = h / 60.0
-        let x = c * (1 - abs(hp.truncatingRemainder(dividingBy: 2) - 1))
-        let m = l - c / 2
-        var r = 0.0, g = 0.0, b = 0.0
-        if hp < 1 { r = c; g = x }
-        else if hp < 2 { r = x; g = c }
-        else if hp < 3 { g = c; b = x }
-        else if hp < 4 { g = x; b = c }
-        else if hp < 5 { r = x; b = c }
-        else { r = c; b = x }
-        return (r + m, g + m, b + m)
-    }
-
-    private static func triadic() -> [(r: Double, g: Double, b: Double)] {
-        let base = Double.random(in: 0..<360)
-        return [hsl(base, 0.85, 0.55),
-                hsl((base + 120).truncatingRemainder(dividingBy: 360), 0.85, 0.55),
-                hsl((base + 240).truncatingRemainder(dividingBy: 360), 0.85, 0.55)]
-    }
-    private static func complementary() -> [(r: Double, g: Double, b: Double)] {
-        let base = Double.random(in: 0..<360)
-        return [hsl(base, 0.9, 0.50),
-                hsl((base + 180).truncatingRemainder(dividingBy: 360), 0.9, 0.50),
-                hsl((base + 90).truncatingRemainder(dividingBy: 360), 0.6, 0.60)]
-    }
-    private static func analogous() -> [(r: Double, g: Double, b: Double)] {
-        let base = Double.random(in: 0..<360)
-        return [hsl(base, 0.80, 0.50),
-                hsl((base + 30).truncatingRemainder(dividingBy: 360), 0.80, 0.55),
-                hsl((base + 60).truncatingRemainder(dividingBy: 360), 0.80, 0.50)]
-    }
-    private static func neon() -> [(r: Double, g: Double, b: Double)] {
-        let base = Double.random(in: 0..<360)
-        return [hsl(base, 1.0, 0.55),
-                hsl((base + 150).truncatingRemainder(dividingBy: 360), 1.0, 0.50),
-                hsl((base + 210).truncatingRemainder(dividingBy: 360), 1.0, 0.55)]
-    }
-    private static func pastel() -> [(r: Double, g: Double, b: Double)] {
-        let base = Double.random(in: 0..<360)
-        return [hsl(base, 0.65, 0.72),
-                hsl((base + 120).truncatingRemainder(dividingBy: 360), 0.55, 0.72),
-                hsl((base + 240).truncatingRemainder(dividingBy: 360), 0.60, 0.72)]
-    }
-    private static func classic() -> [(r: Double, g: Double, b: Double)] {
-        return [(0.95, 0.85, 0.10),   // Yellow
-                (0.95, 0.35, 0.10),   // Red-Orange
-                (0.15, 0.25, 0.95)]   // Blue
+        zenPalettes.randomElement()!
     }
 }
 
@@ -215,8 +178,8 @@ struct TunnelBackground: View {
     @State private var seed = WorldSeed.random()
 
     var body: some View {
-        // Always animate: 6 fps ambient, 10 fps during frenzy
-        TimelineView(.animation(minimumInterval: frenzy ? 1.0 / 10 : 1.0 / 6, paused: false)) { timeline in
+        // Zen mode: 1 fps — glacial, barely perceptible motion
+        TimelineView(.animation(minimumInterval: 2.0, paused: false)) { timeline in
             let t = CGFloat(timeline.date.timeIntervalSinceReferenceDate)
 
             Canvas { context, size in
@@ -227,7 +190,7 @@ struct TunnelBackground: View {
                 let spacing = ambientSpacing(base: baseSpacing, t: t, frenzy: frenzy)
 
                 // Grey base: fades out as colour emerges
-                let greyAlpha = max(0.0, 0.22 - d * 0.018)
+                let greyAlpha = max(0.0, 0.30 - d * 0.018)
                 let greyRadius: CGFloat = 2.8
 
                 // Colour: fades in
@@ -280,12 +243,9 @@ struct TunnelBackground: View {
         .ignoresSafeArea()
         .onChange(of: pulseID) { _, _ in
             roundPulse = 1.0
-            withAnimation(.easeOut(duration: 1.8)) { roundPulse = 0 }
+            withAnimation(.easeOut(duration: 3.0)) { roundPulse = 0 }
         }
-        .onChange(of: tapPulseID) { _, _ in
-            tapPulse = 1.0
-            withAnimation(.easeOut(duration: 0.4)) { tapPulse = 0 }
-        }
+        // Tap pulse disabled — zen mode (no per-tap background jitter)
         .onChange(of: gameID) { _, _ in
             seed = WorldSeed.random()
         }
@@ -293,41 +253,41 @@ struct TunnelBackground: View {
 
     // MARK: - Ambient Effects
 
-    /// Modify grid spacing for breathing effect
+    /// Modify grid spacing for breathing effect — zen: very gentle
     private func ambientSpacing(base: CGFloat, t: CGFloat, frenzy: Bool) -> CGFloat {
         switch seed.ambientEffect {
         case .breathe:
-            // Slow zoom pulse: ±2px normal, ±4px frenzy
-            let amp: CGFloat = frenzy ? 4.0 : 2.0
-            let speed: CGFloat = frenzy ? 0.2 : 0.1
+            // Zen: glacial ±1px breathing
+            let amp: CGFloat = 1.0
+            let speed: CGFloat = 0.0075
             return base + sin(t * speed) * amp
         default:
             return base
         }
     }
 
-    /// Displace a grid point based on the ambient effect
+    /// Displace a grid point based on the ambient effect — zen: glacial motion
     private func ambientDisplace(gx: CGFloat, gy: CGFloat,
                                   cx: CGFloat, cy: CGFloat,
                                   t: CGFloat, frenzy: Bool,
                                   size: CGSize) -> (CGFloat, CGFloat) {
-        // Big displacement so it's visible, ~70% of the "too fast" speed
-        let intensity: CGFloat = frenzy ? 2.5 : 1.0
+        // Zen mode: all motion at ~10% of original, glacial speeds
+        let intensity: CGFloat = 0.1
 
         switch seed.ambientEffect {
         case .breathe:
             return (gx, gy)
 
         case .flow:
-            let wx = sin(gy * 0.018 + t * 0.16) * 3.5 * intensity
-            let wy = cos(gx * 0.015 + t * 0.13) * 2.8 * intensity
+            let wx = sin(gy * 0.018 + t * 0.0075) * 3.5 * intensity
+            let wy = cos(gx * 0.015 + t * 0.006) * 2.8 * intensity
             return (gx + wx, gy + wy)
 
         case .ripple:
             let dx = gx - cx
             let dy = gy - cy
             let dist = sqrt(dx * dx + dy * dy)
-            let wave = sin(dist * 0.04 - t * 0.14) * 3.0 * intensity
+            let wave = sin(dist * 0.04 - t * 0.006) * 3.0 * intensity
             let normX = dist > 1 ? dx / dist : 0
             let normY = dist > 1 ? dy / dist : 0
             return (gx + normX * wave, gy + normY * wave)
@@ -338,7 +298,7 @@ struct TunnelBackground: View {
             let dist = sqrt(dx * dx + dy * dy)
             let maxDist = sqrt(cx * cx + cy * cy)
             let normalizedDist = dist / max(maxDist, 1)
-            let angle = sin(t * 0.08) * 0.04 * intensity * normalizedDist
+            let angle = sin(t * 0.005) * 0.007 * intensity * normalizedDist
             let cosA = cos(angle)
             let sinA = sin(angle)
             let rx = cx + (dx * cosA - dy * sinA)
@@ -346,10 +306,10 @@ struct TunnelBackground: View {
             return (rx, ry)
 
         case .drift:
-            let wx = sin(t * 0.07) * 4.0 * intensity
-            let wy = cos(t * 0.05) * 3.0 * intensity
-            let localX = sin(gy * 0.01 + t * 0.08) * 1.0 * intensity
-            let localY = cos(gx * 0.01 + t * 0.07) * 0.8 * intensity
+            let wx = sin(t * 0.005) * 2.0 * intensity
+            let wy = cos(t * 0.0035) * 1.5 * intensity
+            let localX = sin(gy * 0.01 + t * 0.005) * 0.5 * intensity
+            let localY = cos(gx * 0.01 + t * 0.005) * 0.4 * intensity
             return (gx + wx + localX, gy + wy + localY)
         }
     }

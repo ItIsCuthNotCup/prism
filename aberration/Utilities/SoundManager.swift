@@ -23,7 +23,7 @@ final class SoundManager {
     private let format: AVAudioFormat
     private let sampleRate: Double = 44100
 
-    /// One pre-built buffer per wheel position (0-23)
+    /// One pre-built buffer per wheel position (0-47)
     private var toneBuffers: [Int: AVAudioPCMBuffer] = [:]
     /// Soft ping when selecting a tile
     private var selectBuffer: AVAudioPCMBuffer?
@@ -70,9 +70,9 @@ final class SoundManager {
     // MARK: - Buffer Generation
 
     private func generateAllBuffers() {
-        // 24 blend tones — pentatonic-friendly mapping across ~2 octaves
-        for i in 0..<24 {
-            let freq = 293.66 * pow(2.0, Double(i) / 14.0)   // ~D4 → ~D6
+        // 48 blend tones — pentatonic-friendly mapping across ~2 octaves
+        for i in 0..<PrismColor.wheelSize {
+            let freq = 293.66 * pow(2.0, Double(i) / 28.0)   // ~D4 → ~D6
             toneBuffers[i] = makeTone(frequency: freq, duration: 0.18)
         }
 
@@ -124,90 +124,45 @@ final class SoundManager {
         themeBuffer = makeTheme()
     }
 
-    // MARK: - Theme Music (8-bit cat melody)
+    // MARK: - Theme Music (loaded from theme_intro.wav)
 
     private func makeTheme() -> AVAudioPCMBuffer {
-        let bpm: Double = 140
-        let beat = 60.0 / bpm              // ~0.4286s
-        let eighth = beat / 2
-        let quarter = beat
-        let half = beat * 2
-        let loopDuration = 4.0 * 4.0 * beat + 0.05  // 4 bars + tiny pad
-
-        let frameCount = AVAudioFrameCount(loopDuration * sampleRate)
-        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount)!
-        buffer.frameLength = frameCount
-        let data = buffer.floatChannelData![0]
-        for i in 0..<Int(frameCount) { data[i] = 0 }
-        let total = Int(frameCount)
-
-        // ── Note frequencies ──
-        let A4 = 440.00
-        let C5 = 523.25, D5 = 587.33, E5 = 659.25
-        let G5 = 783.99, A5 = 880.00, B5 = 987.77
-        let G2 = 98.00, A2 = 110.00
-        let C3 = 130.81, D3 = 146.83, E3 = 164.81
-
-        // ── Melody (square wave, 50% duty) ──
-        let mv = 0.14
-
-        // Bar 1: playful ascending phrase
-        sqNote(data, E5, 0,             eighth,  mv, total)
-        sqNote(data, E5, beat * 0.5,    eighth,  mv, total)
-        sqNote(data, G5, beat,          eighth,  mv, total)
-        sqNote(data, A5, beat * 1.5,    quarter, mv, total)
-        sqNote(data, G5, beat * 2.5,    eighth,  mv, total)
-        sqNote(data, E5, beat * 3,      eighth,  mv, total)
-        sqNote(data, D5, beat * 3.5,    eighth,  mv, total)
-
-        // Bar 2: descending answer
-        let b2 = beat * 4
-        sqNote(data, C5, b2,            eighth,  mv, total)
-        sqNote(data, D5, b2 + beat*0.5, eighth,  mv, total)
-        sqNote(data, E5, b2 + beat,     quarter, mv, total)
-        sqNote(data, D5, b2 + beat*2,   eighth,  mv, total)
-        sqNote(data, C5, b2 + beat*2.5, eighth,  mv, total)
-        sqNote(data, A4, b2 + beat*3,   quarter, mv, total)
-
-        // Bar 3: climbing variation
-        let b3 = beat * 8
-        sqNote(data, C5, b3,            eighth,  mv, total)
-        sqNote(data, E5, b3 + beat*0.5, eighth,  mv, total)
-        sqNote(data, G5, b3 + beat,     eighth,  mv, total)
-        sqNote(data, A5, b3 + beat*1.5, eighth,  mv, total)
-        sqNote(data, G5, b3 + beat*2,   eighth,  mv, total)
-        sqNote(data, A5, b3 + beat*2.5, eighth,  mv, total)
-        sqNote(data, B5, b3 + beat*3,   quarter, mv, total)
-
-        // Bar 4: resolve + meow
-        let b4 = beat * 12
-        sqNote(data, A5, b4,            eighth,  mv, total)
-        sqNote(data, G5, b4 + beat*0.5, eighth,  mv, total)
-        sqNote(data, E5, b4 + beat,     eighth,  mv, total)
-        sqNote(data, D5, b4 + beat*1.5, eighth,  mv, total)
-        sqNote(data, C5, b4 + beat*2,   quarter * 1.3, mv, total)
-        // Little 8-bit "mew!" right before the loop
-        meowNote(data, b4 + beat * 3.2, 0.3, mv * 0.7, total)
-
-        // ── Bass (25% duty for hollow 8-bit tone) ──
-        let bv = 0.09
-        sqNote(data, C3, 0,             half, bv, total, 0.25)
-        sqNote(data, G2, beat * 2,      half, bv, total, 0.25)
-        sqNote(data, A2, b2,            half, bv, total, 0.25)
-        sqNote(data, E3, b2 + beat * 2, half, bv, total, 0.25)
-        sqNote(data, D3, b3,            half, bv, total, 0.25)
-        sqNote(data, C3, b3 + beat * 2, half, bv, total, 0.25)
-        sqNote(data, G2, b4,            half, bv, total, 0.25)
-        sqNote(data, C3, b4 + beat * 2, half, bv, total, 0.25)
-
-        // ── Simple percussion: noise hit on each beat ──
-        let pv = 0.04
-        for b in 0..<16 {
-            let t = Double(b) * beat
-            noiseHit(data, t, 0.02, pv, total)
+        // Load the zen intro clip from bundle
+        guard let url = Bundle.main.url(forResource: "theme_intro", withExtension: "wav"),
+              let file = try? AVAudioFile(forReading: url) else {
+            // Fallback: return 1 second of silence if file missing
+            let silenceCount = AVAudioFrameCount(sampleRate)
+            let buf = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: silenceCount)!
+            buf.frameLength = silenceCount
+            return buf
         }
 
-        return buffer
+        // Read the file into a buffer matching our engine format (mono 44100)
+        let frameCount = AVAudioFrameCount(file.length)
+        let fileFormat = file.processingFormat
+
+        // If formats match, read directly
+        if fileFormat.sampleRate == sampleRate && fileFormat.channelCount == 1 {
+            let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount)!
+            try? file.read(into: buffer)
+            return buffer
+        }
+
+        // Otherwise read in file's native format, then convert
+        let nativeBuf = AVAudioPCMBuffer(pcmFormat: fileFormat, frameCapacity: frameCount)!
+        try? file.read(into: nativeBuf)
+
+        guard let converter = AVAudioConverter(from: fileFormat, to: format) else {
+            return nativeBuf // worst case, let the engine handle it
+        }
+        let convertedCount = AVAudioFrameCount(Double(frameCount) * sampleRate / fileFormat.sampleRate)
+        let converted = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: convertedCount)!
+        var error: NSError?
+        converter.convert(to: converted, error: &error) { _, outStatus in
+            outStatus.pointee = .haveData
+            return nativeBuf
+        }
+        return converted
     }
 
     /// Square-wave note

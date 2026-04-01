@@ -9,7 +9,7 @@ import SwiftUI
 
 struct ShareSheet: UIViewControllerRepresentable {
     let image: UIImage
-    var text: String = "I scored on Chromatose! Can you beat me?"
+    var text: String = "I scored on Stillhue! Can you beat me?"
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
         let items: [Any] = [image, text]

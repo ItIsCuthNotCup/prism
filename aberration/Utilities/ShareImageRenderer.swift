@@ -67,13 +67,14 @@ struct ShareImageRenderer {
             UIColor.white.withAlphaComponent(0.95).setFill()
             cardPath.fill()
 
-            // — "CHROMATOSE" title at top —
+            // — "Stillhue" title at top —
+            let serifDesc = UIFontDescriptor.preferredFontDescriptor(withTextStyle: .largeTitle).withDesign(.serif)!
             let titleAttrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 72, weight: .heavy),
+                .font: UIFont(descriptor: serifDesc.withSize(72), size: 72),
                 .foregroundColor: UIColor(red: 0.16, green: 0.16, blue: 0.18, alpha: 1),
-                .kern: 4.0
+                .kern: 2.0
             ]
-            let titleStr = "CHROMATOSE" as NSString
+            let titleStr = "Stillhue" as NSString
             let titleSize = titleStr.size(withAttributes: titleAttrs)
             titleStr.draw(at: CGPoint(x: (w - titleSize.width) / 2, y: 220),
                          withAttributes: titleAttrs)
@@ -194,7 +195,7 @@ struct ShareImageRenderer {
                 .foregroundColor: UIColor(white: 0.7, alpha: 1),
                 .kern: 3.0
             ]
-            let footStr = "CHROMATOSE" as NSString
+            let footStr = "Stillhue" as NSString
             let footSize = footStr.size(withAttributes: footAttrs)
             footStr.draw(at: CGPoint(x: (w - footSize.width) / 2, y: h - 120),
                         withAttributes: footAttrs)

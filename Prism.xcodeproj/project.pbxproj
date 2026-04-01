@@ -21,6 +21,7 @@
 		A1000012000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000012000000000000000C; };
 		A1000013000000000000000D /* ChromaHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000013000000000000000D; };
 		A1000014000000000000000E /* TunnelBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000014000000000000000E; };
+		A1000015000000000000000F /* theme_intro.wav in Resources */ = {isa = PBXBuildFile; fileRef = A2000015000000000000000F; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -38,6 +39,7 @@
 		A2000012000000000000000C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A2000013000000000000000D /* ChromaHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChromaHeader.swift; sourceTree = "<group>"; };
 		A2000014000000000000000E /* TunnelBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelBackground.swift; sourceTree = "<group>"; };
+		A2000015000000000000000F /* theme_intro.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = theme_intro.wav; sourceTree = "<group>"; };
 		A30000000000000000000001 /* Prism.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Prism.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -68,6 +70,7 @@
 				A50000050000000000000005 /* Views */,
 				A50000060000000000000006 /* Utilities */,
 				A2000012000000000000000C /* Assets.xcassets */,
+				A2000015000000000000000F /* theme_intro.wav */,
 			);
 			path = Prism;
 			sourceTree = "<group>";
@@ -172,6 +175,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1000012000000000000000C /* Assets.xcassets in Resources */,
+				A1000015000000000000000F /* theme_intro.wav in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -154,7 +154,7 @@ struct GameOverOverlay: View {
                                     Teardrop()
                                         .fill(
                                             LinearGradient(
-                                                colors: [Color(hex: 0xFF5E6C), Color(hex: 0xA080E0)],
+                                                colors: [Color(hex: 0x555555), Color(hex: 0x333333)],
                                                 startPoint: .top,
                                                 endPoint: .bottom
                                             )
@@ -163,17 +163,17 @@ struct GameOverOverlay: View {
                                 }
                             }
                             Text("Retry Round")
-                                .font(.system(size: 15, weight: .bold))
+                                .font(.system(size: 15, weight: .semibold))
                         }
-                        .foregroundStyle(Color(hex: 0xFF5E6C))
+                        .foregroundStyle(Color(hex: 0x555555))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(
                             Capsule()
-                                .fill(Color(hex: 0xFF5E6C).opacity(0.1))
+                                .fill(.white.opacity(0.8))
                                 .overlay(
                                     Capsule()
-                                        .strokeBorder(Color(hex: 0xFF5E6C).opacity(0.3), lineWidth: 1)
+                                        .strokeBorder(Color(hex: 0x2A2A2A).opacity(0.2), lineWidth: 1)
                                 )
                         )
                     }
@@ -188,12 +188,16 @@ struct GameOverOverlay: View {
                         showShareSheet = true
                     } label: {
                         Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 17, weight: .bold))
-                            .foregroundStyle(Color(hex: 0x457B9D))
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(Color(hex: 0x555555))
                             .frame(width: 50, height: 48)
                             .background(
                                 Capsule()
-                                    .fill(Color(hex: 0x457B9D).opacity(0.1))
+                                    .fill(.white.opacity(0.8))
+                                    .overlay(
+                                        Capsule()
+                                            .strokeBorder(Color(hex: 0x2A2A2A).opacity(0.2), lineWidth: 1)
+                                    )
                             )
                     }
 
@@ -202,32 +206,34 @@ struct GameOverOverlay: View {
                         showAchievements = true
                     } label: {
                         Image(systemName: "trophy.fill")
-                            .font(.system(size: 17, weight: .bold))
-                            .foregroundStyle(Color(hex: 0xF59E0B))
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(Color(hex: 0x555555))
                             .frame(width: 50, height: 48)
                             .background(
                                 Capsule()
-                                    .fill(Color(hex: 0xF59E0B).opacity(0.1))
+                                    .fill(.white.opacity(0.8))
+                                    .overlay(
+                                        Capsule()
+                                            .strokeBorder(Color(hex: 0x2A2A2A).opacity(0.2), lineWidth: 1)
+                                    )
                             )
                     }
 
                     // Play Again button
                     Button(action: onPlayAgain) {
                         Text("Play Again")
-                            .font(.system(size: 17, weight: .bold))
-                            .foregroundStyle(.white)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(Color(hex: 0x2A2A2A))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
                             .background(
                                 Capsule()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [Color(hex: 0x457B9D), Color(hex: 0x2A9D8F)],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        )
+                                    .fill(.white.opacity(0.8))
+                                    .overlay(
+                                        Capsule()
+                                            .strokeBorder(Color(hex: 0x2A2A2A).opacity(0.2), lineWidth: 1)
                                     )
-                                    .shadow(color: Color(hex: 0x457B9D).opacity(0.3), radius: 12, y: 4)
+                                    .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
                             )
                     }
                 }
