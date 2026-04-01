@@ -457,9 +457,9 @@ final class SoundManager {
         musicNode.volume = 0.5
     }
 
-    /// In-game: mute music
+    /// In-game: barely-there ambient background
     func setGameplayVolume() {
-        musicNode.volume = 0.0
+        musicNode.volume = 0.08
     }
 
     var isThemePlaying: Bool {

@@ -13,6 +13,7 @@ struct PrismGameView: View {
     @State private var showStartScreen = true
     @State private var showAchievements = false
     @State private var showNewGameConfirm = false
+    @State private var showHowToPlay = false
 
     var body: some View {
         GeometryReader { geo in
@@ -56,15 +57,15 @@ struct PrismGameView: View {
 
                     // 2) Card drawn on top — covers cat's body
                     VStack(spacing: 8) {
-                      // Stats bar
-                      HStack(alignment: .top, spacing: 0) {
-                          statBlock(label: "ROUND", value: "\(game.round)")
+                      // Stats bar — SCORE is the hero
+                      HStack(alignment: .center, spacing: 0) {
+                          secondaryStat(label: "ROUND", value: "\(game.round)")
                           Spacer()
                           livesDisplay
                           Spacer()
-                          statBlock(label: "SCORE", value: "\(game.score)")
+                          heroStat(label: "SCORE", value: "\(game.score)")
                           Spacer()
-                          statBlock(label: "BEST", value: "\(game.highScore)", accent: true)
+                          secondaryStat(label: "BEST", value: "\(game.highScore)", accent: true)
                       }
                       .padding(.horizontal, 20)
                       .padding(.vertical, 10)
@@ -110,17 +111,17 @@ struct PrismGameView: View {
                                 .frame(width: cellSize * 1.6, height: cellSize * 1.6)
                                 .shadow(color: target.color.opacity(0.3), radius: 16, y: 4)
 
-                            HStack(spacing: 8) {
+                            VStack(spacing: 3) {
                                 Text(target.name.uppercased())
-                                    .font(.system(size: 13, weight: .bold))
+                                    .font(.system(size: 14, weight: .bold))
                                     .foregroundStyle(Color(hex: 0x3A3A4A))
                                     .tracking(3)
 
-                                // Blend hint (step count)
+                                // Blend hint (step count) — separate line, lighter
                                 if game.parForCurrentTarget > 0 {
-                                    Text("\(game.parForCurrentTarget) steps")
+                                    Text("\(game.parForCurrentTarget) \(game.parForCurrentTarget == 1 ? "blend" : "blends")")
                                         .font(.system(size: 11, weight: .medium, design: .serif))
-                                        .foregroundStyle(Color(hex: 0x999999))
+                                        .foregroundStyle(Color(hex: 0xBBBBBB))
                                 }
                             }
 
@@ -202,7 +203,7 @@ struct PrismGameView: View {
                             Spacer()
                         }
 
-                        // New Game — always centered, with confirmation guard
+                        // New Game — always centered, bold black pill
                         Button {
                             if game.round > 1 && !game.isGameOver {
                                 showNewGameConfirm = true
@@ -213,18 +214,14 @@ struct PrismGameView: View {
                             }
                         } label: {
                             Text("New Game")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(Color(hex: 0x2A2A2A))
-                                .padding(.horizontal, 18)
-                                .padding(.vertical, 10)
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 22)
+                                .padding(.vertical, 11)
                                 .background(
                                     Capsule()
-                                        .fill(.white.opacity(0.8))
-                                        .overlay(
-                                            Capsule()
-                                                .strokeBorder(Color(hex: 0x2A2A2A).opacity(0.2), lineWidth: 1)
-                                        )
-                                        .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
+                                        .fill(Color(hex: 0x2A2A2A))
+                                        .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
                                 )
                         }
                     }
@@ -271,6 +268,8 @@ struct PrismGameView: View {
                             }
                         }
                     ) {
+                        // Ad shows after they've seen their score, before new game
+                        AdManager.shared.showAdIfScheduled()
                         withAnimation(.easeInOut(duration: 0.3)) {
                             game.newGame()
                         }
@@ -296,11 +295,8 @@ struct PrismGameView: View {
         }
         .background(Color(hex: 0xF5F5F7))
         .preferredColorScheme(.light)
-        .onChange(of: game.isGameOver) { _, isOver in
-            if isOver {
-                // Fibonacci-scheduled interstitial ad at game over
-                AdManager.shared.showAdIfScheduled()
-            }
+        .onChange(of: game.isGameOver) { _, _ in
+            // Game over state change — ad now triggers on Play Again tap, not here
         }
         .sheet(isPresented: $showSettings) {
             settingsView
@@ -360,15 +356,29 @@ struct PrismGameView: View {
 
     // MARK: - Subviews
 
-    private func statBlock(label: String, value: String, accent: Bool = false) -> some View {
+    private func heroStat(label: String, value: String) -> some View {
         VStack(spacing: 2) {
             Text(label)
-                .font(.system(size: 10, weight: .medium, design: .serif))
-                .foregroundStyle(Color(hex: 0xAAAAAA))
+                .font(.system(size: 9, weight: .bold, design: .serif))
+                .foregroundStyle(Color(hex: 0x999999))
                 .tracking(2)
             Text(value)
-                .font(.system(size: 22, weight: .bold, design: .serif))
-                .foregroundStyle(accent ? Color(hex: 0x8D99AE) : Color(hex: 0x2A2A3A))
+                .font(.system(size: 30, weight: .black, design: .serif))
+                .foregroundStyle(Color(hex: 0x2A2A3A))
+                .contentTransition(.numericText())
+                .animation(.spring(response: 0.3), value: value)
+        }
+    }
+
+    private func secondaryStat(label: String, value: String, accent: Bool = false) -> some View {
+        VStack(spacing: 2) {
+            Text(label)
+                .font(.system(size: 9, weight: .medium, design: .serif))
+                .foregroundStyle(Color(hex: 0xBBBBBB))
+                .tracking(1.5)
+            Text(value)
+                .font(.system(size: 16, weight: .semibold, design: .serif))
+                .foregroundStyle(accent ? Color(hex: 0x8D99AE) : Color(hex: 0x6A6A7A))
                 .contentTransition(.numericText())
                 .animation(.spring(response: 0.3), value: value)
         }
@@ -378,10 +388,10 @@ struct PrismGameView: View {
 
     private var livesDisplay: some View {
         VStack(spacing: 2) {
-            Text("HEALTH")
-                .font(.system(size: 10, weight: .medium, design: .serif))
-                .foregroundStyle(Color(hex: 0xAAAAAA))
-                .tracking(2)
+            Text("LIVES")
+                .font(.system(size: 9, weight: .medium, design: .serif))
+                .foregroundStyle(Color(hex: 0xBBBBBB))
+                .tracking(1.5)
             HStack(spacing: 4) {
                 let maxSlots = max(3, game.lives)
                 ForEach(0..<maxSlots, id: \.self) { i in
@@ -424,9 +434,9 @@ struct PrismGameView: View {
                     .font(.system(size: 20, weight: .black, design: .serif))
                     .foregroundStyle(Color(hex: 0x2A2A3A))
 
-                Text("Next color incoming...")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color(hex: 0x999999))
+                Text("Next color...")
+                    .font(.system(size: 12, weight: .medium, design: .serif))
+                    .foregroundStyle(Color(hex: 0xAAAAAA))
 
                 if let combo = game.comboMessage {
                     Text(combo)
@@ -468,112 +478,53 @@ struct PrismGameView: View {
     }
 
     private var normalRoundContent: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 44))
+                .font(.system(size: 36))
                 .foregroundStyle(Color(hex: 0x2A9D8F))
-                .shadow(color: Color(hex: 0x2A9D8F).opacity(0.3), radius: 12)
+                .shadow(color: Color(hex: 0x2A9D8F).opacity(0.2), radius: 10)
 
-            Text("ROUND \(game.round)")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color(hex: 0x888888))
-                .tracking(3)
+            Text("Round \(game.round)")
+                .font(.system(size: 18, weight: .semibold, design: .serif))
+                .foregroundStyle(Color(hex: 0x3A3A4A))
 
-            Text("COMPLETE")
-                .font(.system(size: 26, weight: .black, design: .serif))
-                .foregroundStyle(Color(hex: 0x2A2A3A))
-                .tracking(4)
-
-            // Score breakdown
-            VStack(spacing: 3) {
-                scoreRow(label: "Blends", value: "+\(game.lastRoundBlendPoints)")
-                scoreRow(label: "Match", value: "+\(game.lastRoundMatchBonus)")
-                if game.lastRoundComboBonus > 0 {
-                    scoreRow(label: "Bonus", value: "+\(game.lastRoundComboBonus)", accent: true)
-                }
+            if let combo = game.comboMessage {
+                Text(combo)
+                    .font(.system(size: 12, weight: .bold, design: .serif))
+                    .foregroundStyle(Color(hex: 0x2A9D8F))
+                    .tracking(1)
             }
-            .padding(.top, 4)
-
-            Text("Tap to continue")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Color(hex: 0xAAAAAA))
-                .padding(.top, 8)
-                .opacity(game.roundCompleteCanDismiss ? 1 : 0)
-                .animation(.easeIn(duration: 0.2), value: game.roundCompleteCanDismiss)
         }
-        .padding(.horizontal, 40)
-        .padding(.vertical, 28)
+        .padding(.horizontal, 44)
+        .padding(.vertical, 24)
         .background(glassCard(cornerRadius: 24))
     }
 
-    private func scoreRow(label: String, value: String, accent: Bool = false) -> some View {
-        HStack {
-            Text(label)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color(hex: 0xAAAAAA))
-            Spacer()
-            Text(value)
-                .font(.system(size: 12, weight: .bold, design: .serif))
-                .foregroundStyle(accent ? Color(hex: 0xF59E0B) : Color(hex: 0x666666))
-        }
-        .frame(width: 140)
-    }
-
     private var milestoneContent: some View {
-        VStack(spacing: 14) {
-            Image(systemName: "star.circle.fill")
-                .font(.system(size: 52))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [Color(hex: 0xF59E0B), Color(hex: 0xF97316)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .shadow(color: Color(hex: 0xF59E0B).opacity(0.4), radius: 16)
+        VStack(spacing: 10) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 28))
+                .foregroundStyle(Color(hex: 0xF59E0B))
+                .shadow(color: Color(hex: 0xF59E0B).opacity(0.25), radius: 10)
 
-            Text("ROUND \(game.round)")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color(hex: 0x888888))
-                .tracking(3)
+            Text("Round \(game.round)")
+                .font(.system(size: 20, weight: .semibold, design: .serif))
+                .foregroundStyle(Color(hex: 0x3A3A4A))
 
-            Text("AMAZING!")
-                .font(.system(size: 32, weight: .black, design: .serif))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [Color(hex: 0xF59E0B), Color(hex: 0xE63946), Color(hex: 0xF59E0B)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .tracking(6)
-
-            Text("Milestone Reached")
-                .font(.system(size: 11, weight: .semibold))
+            Text("Milestone")
+                .font(.system(size: 11, weight: .medium, design: .serif))
                 .foregroundStyle(Color(hex: 0xBBBBBB))
-                .tracking(2)
-
-            Text("\(game.score) POINTS")
-                .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(Color(hex: 0x666666))
                 .tracking(2)
 
             if let combo = game.comboMessage {
                 Text(combo)
-                    .font(.system(size: 15, weight: .black, design: .serif))
+                    .font(.system(size: 12, weight: .bold, design: .serif))
                     .foregroundStyle(Color(hex: 0xF59E0B))
-                    .tracking(2)
+                    .tracking(1)
             }
-
-            Text("Tap to continue")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Color(hex: 0xAAAAAA))
-                .padding(.top, 8)
-                .opacity(game.roundCompleteCanDismiss ? 1 : 0)
-                .animation(.easeIn(duration: 0.2), value: game.roundCompleteCanDismiss)
         }
-        .padding(.horizontal, 40)
-        .padding(.vertical, 28)
+        .padding(.horizontal, 44)
+        .padding(.vertical, 24)
         .background(glassCard(cornerRadius: 24))
     }
 
@@ -739,53 +690,138 @@ struct PrismGameView: View {
 
             dotGridBackground
 
-            VStack(spacing: 32) {
-                Spacer()
+            if showHowToPlay {
+                // How to Play — clean rules screen
+                VStack(spacing: 24) {
+                    Spacer()
 
-                CatMascotView()
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 120)
-
-                VStack(spacing: 12) {
-                    Text("Stillhue")
-                        .font(.system(size: 42, weight: .regular, design: .serif))
+                    Text("How to Play")
+                        .font(.system(size: 24, weight: .semibold, design: .serif))
                         .foregroundStyle(Color(hex: 0x2A2A2A))
-                        .tracking(2)
 
-                    Text("Blend colors to match the target.")
-                        .font(.system(size: 15, weight: .medium, design: .serif))
-                        .foregroundStyle(Color(hex: 0x888888))
-                }
-
-                Spacer()
-
-                Button {
-                    MusicManager.shared.setGameplayVolume()
-                    showStartScreen = false
-                } label: {
-                    Text("Play")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(Color(hex: 0x2A2A2A))
-                        .tracking(4)
-                        .padding(.horizontal, 52)
-                        .padding(.vertical, 16)
-                        .background(
-                            Capsule()
-                                .fill(.white.opacity(0.8))
-                                .overlay(
-                                    Capsule()
-                                        .strokeBorder(Color(hex: 0x2A2A2A).opacity(0.2), lineWidth: 1)
-                                )
-                                .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
+                    VStack(alignment: .leading, spacing: 16) {
+                        howToPlayRow(
+                            icon: "hand.tap",
+                            text: "Tap two tiles to blend their colors together"
                         )
+                        howToPlayRow(
+                            icon: "target",
+                            text: "Match the target color shown at the top"
+                        )
+                        howToPlayRow(
+                            icon: "paintpalette",
+                            text: "Red, Yellow, and Blue are primary — mix them to make any color"
+                        )
+                        howToPlayRow(
+                            icon: "heart",
+                            text: "You have 3 lives. Spend one to retry a failed round"
+                        )
+                        howToPlayRow(
+                            icon: "arrow.counterclockwise",
+                            text: "Undo takes back your last blend, once per round"
+                        )
+                    }
+                    .padding(.horizontal, 32)
+
+                    Spacer()
+
+                    // Play button from rules screen
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            showHowToPlay = false
+                        }
+                        MusicManager.shared.setGameplayVolume()
+                        showStartScreen = false
+                    } label: {
+                        Text("Play")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(.white)
+                            .tracking(3)
+                            .padding(.horizontal, 52)
+                            .padding(.vertical, 14)
+                            .background(
+                                Capsule()
+                                    .fill(Color(hex: 0x2A2A2A))
+                                    .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
+                            )
+                    }
+                    .padding(.bottom, 60)
                 }
-                .padding(.bottom, 60)
+                .transition(.opacity)
+            } else {
+                // Main start screen
+                VStack(spacing: 32) {
+                    Spacer()
+
+                    CatMascotView()
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 120)
+
+                    VStack(spacing: 12) {
+                        Text("Stillhue")
+                            .font(.system(size: 42, weight: .regular, design: .serif))
+                            .foregroundStyle(Color(hex: 0x2A2A2A))
+                            .tracking(2)
+
+                        Text("A color-blending puzzle")
+                            .font(.system(size: 15, weight: .medium, design: .serif))
+                            .foregroundStyle(Color(hex: 0x999999))
+                    }
+
+                    Spacer()
+
+                    VStack(spacing: 14) {
+                        // Play — primary action, bold black pill
+                        Button {
+                            MusicManager.shared.setGameplayVolume()
+                            showStartScreen = false
+                        } label: {
+                            Text("Play")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundStyle(.white)
+                                .tracking(3)
+                                .padding(.horizontal, 52)
+                                .padding(.vertical, 14)
+                                .background(
+                                    Capsule()
+                                        .fill(Color(hex: 0x2A2A2A))
+                                        .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
+                                )
+                        }
+
+                        // How to Play — subtle text link
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                showHowToPlay = true
+                            }
+                        } label: {
+                            Text("How to Play")
+                                .font(.system(size: 14, weight: .medium, design: .serif))
+                                .foregroundStyle(Color(hex: 0xAAAAAA))
+                        }
+                    }
+                    .padding(.bottom, 60)
+                }
+                .transition(.opacity)
             }
         }
         .preferredColorScheme(.light)
         .onAppear {
             MusicManager.shared.setMenuVolume()
             MusicManager.shared.startTheme()
+        }
+    }
+
+    private func howToPlayRow(icon: String, text: String) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.system(size: 16))
+                .foregroundStyle(Color(hex: 0x8D99AE))
+                .frame(width: 28)
+            Text(text)
+                .font(.system(size: 14, weight: .regular, design: .serif))
+                .foregroundStyle(Color(hex: 0x4A4A5A))
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

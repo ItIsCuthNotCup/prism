@@ -66,10 +66,9 @@ struct GameOverOverlay: View {
                             )
                     }
 
-                    Text("GAME OVER")
-                        .font(.system(size: 28, weight: .black, design: .serif))
-                        .foregroundStyle(Color(hex: 0x2A2A3A))
-                        .tracking(4)
+                    Text("Out of moves")
+                        .font(.system(size: 22, weight: .semibold, design: .serif))
+                        .foregroundStyle(Color(hex: 0x3A3A4A))
                 }
                 .padding(.bottom, 16)
 
@@ -108,8 +107,8 @@ struct GameOverOverlay: View {
                 // The near-miss hook — this is the line that makes them hit Play Again
                 if let nearMiss = nearMissMessage {
                     Text(nearMiss)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color(hex: 0xE63946))
+                        .font(.system(size: 14, weight: .medium, design: .serif))
+                        .foregroundStyle(Color(hex: 0x8D99AE))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 20)
                         .padding(.bottom, 16)
@@ -219,21 +218,17 @@ struct GameOverOverlay: View {
                             )
                     }
 
-                    // Play Again button
+                    // Play Again button — bold black pill
                     Button(action: onPlayAgain) {
                         Text("Play Again")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(Color(hex: 0x2A2A2A))
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
+                            .padding(.vertical, 13)
                             .background(
                                 Capsule()
-                                    .fill(.white.opacity(0.8))
-                                    .overlay(
-                                        Capsule()
-                                            .strokeBorder(Color(hex: 0x2A2A2A).opacity(0.2), lineWidth: 1)
-                                    )
-                                    .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
+                                    .fill(Color(hex: 0x2A2A2A))
+                                    .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
                             )
                     }
                 }
