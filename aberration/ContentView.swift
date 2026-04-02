@@ -18,6 +18,8 @@ struct PrismGameView: View {
     @State private var showRewardChest = false
     @State private var pendingReward: GameState.RewardType? = nil
     @State private var activeCelebration: CelebrationType? = nil
+    @State private var glowPulse = false
+    @State private var aberrationPhase: Double = 0
     /// Countdown: celebration triggers when this hits 0, then resets to a new random 1–6.
     @State private var roundsUntilCelebration: Int = Int.random(in: 1...6)
     /// Cycles through celebration types so they alternate (no long streaks of the same one).
@@ -258,6 +260,30 @@ struct PrismGameView: View {
                   .padding(.horizontal, 4)
                   .padding(.vertical, 8)
                   .background(glassCard(cornerRadius: 20))
+                  .overlay(
+                    ChromaticAberrationBorder(
+                        cornerRadius: 20,
+                        phase: aberrationPhase,
+                        intensity: game.activeMultiplierSource == .none ? 0 : (glowPulse ? 1.0 : 0.3)
+                    )
+                    .allowsHitTesting(false)
+                  )
+                  .onChange(of: game.activeMultiplierSource) { _, newSource in
+                      if newSource != .none {
+                          withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+                              glowPulse = true
+                          }
+                          // Start continuous phase rotation
+                          withAnimation(.linear(duration: 4.0).repeatForever(autoreverses: false)) {
+                              aberrationPhase = 1.0
+                          }
+                      } else {
+                          withAnimation(.easeOut(duration: 0.3)) {
+                              glowPulse = false
+                              aberrationPhase = 0
+                          }
+                      }
+                  }
                 }
                 .padding(.horizontal, contentPadding)
                 .padding(.top, 8)
@@ -272,9 +298,9 @@ struct PrismGameView: View {
                     color: game.floatingPointsColor
                 )
 
-                // Bonus message (appears below the floating points)
+                // Bonus label (appears below the floating points, per-type animation)
                 BonusLabelView(
-                    message: game.bonusMessage ?? "",
+                    bonus: game.lastEarnedBonus,
                     trigger: game.bonusTrigger
                 )
 
@@ -414,6 +440,8 @@ struct PrismGameView: View {
     }
 
     // MARK: - Glass Card Background
+
+    // MARK: - Multiplier Glow (chromatic aberration border)
 
     private func glassCard(cornerRadius: CGFloat) -> some View {
         ZStack {

@@ -217,16 +217,26 @@ class GameState {
     /// Toast queue: achievement currently being shown as a floating toast (top-right corner)
     var achievementToast: StatsManager.Achievement? = nil
 
-    // MARK: - Golden Tiles (3x Score Multiplier)
+    // MARK: - Golden Tiles & Multiplier System
 
     /// Positions of golden bonus tiles on the board
     var goldenPositions: Set<GridPosition> = []
-    /// Rounds remaining with 3x score multiplier (0 = inactive)
+    /// Rounds remaining with active multiplier (0 = inactive)
     var multiplierRoundsLeft: Int = 0
-    /// Whether the score multiplier is active
+    /// The multiplier value (3 for golden tiles, 5 for Untouchable)
+    var multiplierValue: Int = 3
+    /// Whether any multiplier is active
     var isMultiplierActive: Bool { multiplierRoundsLeft > 0 }
     /// Current score multiplier
-    var scoreMultiplier: Int { multiplierRoundsLeft > 0 ? 3 : 1 }
+    var scoreMultiplier: Int { multiplierRoundsLeft > 0 ? multiplierValue : 1 }
+
+    /// What type of multiplier is active (drives visual effects)
+    enum MultiplierSource: Equatable {
+        case none
+        case golden    // 3x — warm gold glow
+        case untouchable // 5x — red glow
+    }
+    var activeMultiplierSource: MultiplierSource = .none
 
     // MARK: - Invisible DDA & Breather Rounds
 
@@ -310,16 +320,66 @@ class GameState {
 
     // MARK: - Bonus System
 
+    /// Describes a bonus earned on round complete
+    struct EarnedBonus: Equatable {
+        let type: BonusType
+        let points: Int           // 0 if this is a multiplier-only bonus
+        let isMultiplier: Bool    // true = activates a multiplier instead of flat points
+
+        static func == (lhs: EarnedBonus, rhs: EarnedBonus) -> Bool {
+            lhs.type == rhs.type && lhs.points == rhs.points
+        }
+    }
+
+    enum BonusType: Equatable {
+        case perfectBlend   // 1-blend match → flat +150
+        case efficient      // par blends → flat +100
+        case cleanStreak    // 3 rounds no undo → flat +75
+        case speedDemon     // < 5 sec → flat +50
+        case untouchable    // 15 rounds no life → 5x multiplier
+
+        var label: String {
+            switch self {
+            case .perfectBlend: return "Perfect Blend!"
+            case .efficient:    return "Efficient!"
+            case .cleanStreak:  return "Clean Streak!"
+            case .speedDemon:   return "Speed Demon!"
+            case .untouchable:  return "UNTOUCHABLE"
+            }
+        }
+
+        /// Each bonus has a distinct color
+        var hexColor: UInt {
+            switch self {
+            case .perfectBlend: return 0xFF6B9D  // pink — rare & special
+            case .efficient:    return 0x7BCF72  // green — clean
+            case .cleanStreak:  return 0xB8A9E8  // lavender — steady
+            case .speedDemon:   return 0xFFB800  // yellow — fast
+            case .untouchable:  return 0xE83A3A  // red — powerful
+            }
+        }
+
+        var sfIcon: String {
+            switch self {
+            case .perfectBlend: return "sparkles"
+            case .efficient:    return "checkmark.seal.fill"
+            case .cleanStreak:  return "flame.fill"
+            case .speedDemon:   return "bolt.fill"
+            case .untouchable:  return "shield.fill"
+            }
+        }
+    }
+
     /// Consecutive rounds completed without using undo
     var cleanRoundStreak: Int = 0
     /// Timestamp of first blend this round (for speed bonus)
     var firstBlendTime: Date? = nil
     /// Colors created for the first time this game (for explorer bonus)
     var newColorsThisGame: Set<Int> = []
-    /// Bonus message to show as floating text (e.g. "Perfect Blend!")
-    var bonusMessage: String? = nil
-    /// Bonus amount to show alongside the message
-    var bonusAmount: Int = 0
+    /// Rounds survived without losing a life (for untouchable)
+    var roundsWithoutDying: Int = 0
+    /// The most impressive bonus earned this round (drives the floating label)
+    var lastEarnedBonus: EarnedBonus? = nil
     /// Trigger for bonus animation
     var bonusTrigger: Int = 0
 
@@ -442,6 +502,7 @@ class GameState {
     private func recordDeath() {
         consecutiveDeaths += 1
         consecutiveWins = 0
+        roundsWithoutDying = 0  // reset untouchable streak
     }
 
     /// Called on any round completion to update DDA tracking
@@ -530,7 +591,7 @@ class GameState {
             goldenPositions.remove(posA)
             goldenPositions.remove(posB)
             if usedGolden {
-                multiplierRoundsLeft = 3
+                activateMultiplier(value: 3, rounds: 3, source: .golden)
                 StatsManager.shared.recordGoldenTileUsed()
             }
 
@@ -689,28 +750,46 @@ class GameState {
         return nil
     }
 
+    // MARK: - Multiplier Activation
+
+    /// Activate a score multiplier. Higher multipliers always win over lower ones.
+    func activateMultiplier(value: Int, rounds: Int, source: MultiplierSource) {
+        // Only override if the new multiplier is stronger or the current one expired
+        if value > multiplierValue || multiplierRoundsLeft == 0 {
+            multiplierValue = value
+            multiplierRoundsLeft = rounds
+            activeMultiplierSource = source
+        } else if value == multiplierValue {
+            // Same tier — just refresh duration
+            multiplierRoundsLeft = max(multiplierRoundsLeft, rounds)
+        }
+    }
+
     // MARK: - Bonus Evaluation
 
-    /// Evaluate all round-complete bonuses. Returns total bonus points awarded.
+    /// Evaluate all round-complete bonuses. Returns total flat bonus points awarded.
+    /// Multiplier bonuses don't add points directly — they activate a multiplier.
     private func evaluateBonuses() -> Int {
         var totalBonus = 0
-        var messages: [String] = []
+        var earned: [EarnedBonus] = []
+
+        // ── Flat point bonuses (common) ──
 
         // 1. Perfect Blend: matched target in exactly 1 blend
         if blendsThisTarget == 1 {
             let bonus = 150 * scoreMultiplier
             totalBonus += bonus
-            messages.append("Perfect Blend! +\(bonus)")
+            earned.append(EarnedBonus(type: .perfectBlend, points: bonus, isMultiplier: false))
         }
 
-        // 2. Efficiency: matched in minimum blends (par) — only if > 1 blend
+        // 2. Efficiency: matched in minimum blends (par) — only when > 1 blend
         if blendsThisTarget > 1 && parForCurrentTarget > 0 && blendsThisTarget <= parForCurrentTarget {
             let bonus = 100 * scoreMultiplier
             totalBonus += bonus
-            messages.append("Efficient! +\(bonus)")
+            earned.append(EarnedBonus(type: .efficient, points: bonus, isMultiplier: false))
         }
 
-        // 3. No-Undo Streak: 3+ consecutive clean rounds
+        // 3. No-Undo Streak: every 3 clean rounds
         if !undoUsedThisRound {
             cleanRoundStreak += 1
         } else {
@@ -719,7 +798,7 @@ class GameState {
         if cleanRoundStreak >= 3 && cleanRoundStreak % 3 == 0 {
             let bonus = 75 * scoreMultiplier
             totalBonus += bonus
-            messages.append("Clean Streak! +\(bonus)")
+            earned.append(EarnedBonus(type: .cleanStreak, points: bonus, isMultiplier: false))
         }
 
         // 4. Speed Demon: completed within 5 seconds of first blend
@@ -728,16 +807,31 @@ class GameState {
             if elapsed <= 5.0 && blendsThisTarget >= 1 {
                 let bonus = 50 * scoreMultiplier
                 totalBonus += bonus
-                messages.append("Speed Demon! +\(bonus)")
+                earned.append(EarnedBonus(type: .speedDemon, points: bonus, isMultiplier: false))
             }
         }
 
-        // Apply bonus
+        // ── Multiplier bonuses (rare, hard to get) ──
+
+        // 5. Untouchable: 15 rounds without losing a life → 5x for 3 rounds
+        roundsWithoutDying += 1
+        if roundsWithoutDying >= 15 && roundsWithoutDying % 15 == 0 {
+            activateMultiplier(value: 5, rounds: 3, source: .untouchable)
+            earned.append(EarnedBonus(type: .untouchable, points: 0, isMultiplier: true))
+        }
+
+        // Apply flat bonus points
         if totalBonus > 0 {
             score += totalBonus
-            // Show the first (most impressive) bonus message
-            bonusMessage = messages.first
-            bonusAmount = totalBonus
+        }
+
+        // Show the most impressive bonus (multipliers > flat, then by rarity)
+        // Priority: untouchable > perfect > efficient > speed > clean
+        let priority: [BonusType] = [.untouchable, .perfectBlend, .efficient, .speedDemon, .cleanStreak]
+        let best = priority.compactMap { type in earned.first { $0.type == type } }.first
+
+        if let best {
+            lastEarnedBonus = best
             bonusTrigger += 1
         }
 
@@ -782,6 +876,9 @@ class GameState {
         // Decrement score multiplier
         if multiplierRoundsLeft > 0 {
             multiplierRoundsLeft -= 1
+            if multiplierRoundsLeft == 0 {
+                activeMultiplierSource = .none
+            }
         }
 
         // ── Breather round? ──
@@ -1125,6 +1222,7 @@ class GameState {
         undoUsedThisRound = false
         cleanRoundStreak = 0
         firstBlendTime = nil
+        roundsWithoutDying = 0  // using a life resets untouchable streak
 
         // Restart the same round: decrement so startNewRound increments back,
         // and also decrement totalRoundsCompletedThisGame since startNewRound will
@@ -1167,8 +1265,8 @@ class GameState {
         cleanRoundStreak = 0
         firstBlendTime = nil
         newColorsThisGame = []
-        bonusMessage = nil
-        bonusAmount = 0
+        roundsWithoutDying = 0
+        lastEarnedBonus = nil
         showMilestone = false
         undoGrid = nil
         undoScore = nil
@@ -1199,6 +1297,8 @@ class GameState {
         backgroundFrenzyRoundsLeft = 0
         goldenPositions = []
         multiplierRoundsLeft = 0
+        multiplierValue = 3
+        activeMultiplierSource = .none
         timeRemaining = 0
         timerLimit = 0
         timerActive = false
