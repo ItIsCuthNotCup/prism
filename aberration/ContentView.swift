@@ -14,6 +14,9 @@ struct PrismGameView: View {
     @State private var showAchievements = false
     @State private var showNewGameConfirm = false
     @State private var showHowToPlay = false
+    @State private var showRewardOffer = false
+    @State private var showRewardChest = false
+    @State private var pendingReward: GameState.RewardType? = nil
     @State private var activeCelebration: CelebrationType? = nil
     /// Countdown: celebration triggers when this hits 0, then resets to a new random 1–6.
     @State private var roundsUntilCelebration: Int = Int.random(in: 1...6)
@@ -78,21 +81,6 @@ struct PrismGameView: View {
                     // Target color + progress + blend preview
                     if let target = game.targetColor {
                         VStack(spacing: 8) {
-                            // Multi-step progress dots (no label for single target)
-                            if game.totalTargetsThisRound > 1 {
-                                HStack(spacing: 4) {
-                                    ForEach(0..<game.totalTargetsThisRound, id: \.self) { i in
-                                        Circle()
-                                            .fill(i < game.currentTargetNumber - 1
-                                                  ? Color(hex: 0x2A9D8F)
-                                                  : (i == game.currentTargetNumber - 1
-                                                     ? Color(hex: 0x888888)
-                                                     : Color(hex: 0xDDDDDD)))
-                                            .frame(width: 6, height: 6)
-                                    }
-                                }
-                            }
-
                             RoundedRectangle(cornerRadius: 14)
                                 .fill(
                                     LinearGradient(
@@ -178,7 +166,7 @@ struct PrismGameView: View {
 
                     // Bottom buttons (hidden during overlays)
                     ZStack {
-                        // Undo — left aligned
+                        // Undo — left, Hint — right
                         HStack {
                             Button {
                                 withAnimation(.easeInOut(duration: 0.2)) {
@@ -205,7 +193,39 @@ struct PrismGameView: View {
                             }
                             .opacity(game.canUndo ? 1 : 0)
                             .allowsHitTesting(game.canUndo)
+
                             Spacer()
+
+                            // Hint button — right side
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    _ = game.useHintToken()
+                                }
+                            } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "book.fill")
+                                    Text("Hint")
+                                    if game.hintTokens > 0 {
+                                        Text("(\(game.hintTokens))")
+                                            .font(.system(size: 11, weight: .bold))
+                                    }
+                                }
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(game.hintTokens > 0 ? Color(hex: 0x5A9BC7) : Color(hex: 0xBBBBBB))
+                                .padding(.horizontal, 18)
+                                .padding(.vertical, 10)
+                                .background(
+                                    Capsule()
+                                        .fill(.white.opacity(0.8))
+                                        .overlay(
+                                            Capsule()
+                                                .strokeBorder((game.hintTokens > 0 ? Color(hex: 0x5A9BC7) : Color(hex: 0xBBBBBB)).opacity(0.2), lineWidth: 1)
+                                        )
+                                        .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
+                                )
+                            }
+                            .opacity(game.hintTokens > 0 && !game.hintActive ? 1 : 0.4)
+                            .allowsHitTesting(game.hintTokens > 0 && !game.hintActive)
                         }
 
                         // New Game — always centered, bold black pill
@@ -232,7 +252,7 @@ struct PrismGameView: View {
                     }
                     .padding(.top, 4)
                     .padding(.bottom, 6)
-                    .opacity(game.isGameOver || game.showSubTargetComplete ? 0 : 1)
+                    .opacity(game.isGameOver ? 0 : 1)
                     .animation(.easeInOut(duration: 0.2), value: game.canUndo)
                   } // end bottom container
                   .padding(.horizontal, 4)
@@ -244,17 +264,18 @@ struct PrismGameView: View {
                 .frame(maxWidth: maxContentWidth)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                // Sub-target complete overlay (multi-step)
-                if game.showSubTargetComplete {
-                    subTargetOverlay
-                }
-
                 // Floating points animation (non-blocking)
                 FloatingPointsView(
                     amount: game.floatingPointsAmount,
                     multiplier: game.floatingPointsMultiplier,
                     trigger: game.floatingPointsTrigger,
-                    combo: game.comboMessage
+                    color: game.floatingPointsColor
+                )
+
+                // Bonus message (appears below the floating points)
+                BonusLabelView(
+                    message: game.bonusMessage ?? "",
+                    trigger: game.bonusTrigger
                 )
 
                 // Game over overlay
@@ -276,12 +297,61 @@ struct PrismGameView: View {
                             }
                         }
                     ) {
-                        // Ad shows after they've seen their score, before new game
-                        AdManager.shared.showAdIfScheduled()
+                        // Play Again tapped — check if we should offer a reward
+                        if AdManager.shared.shouldOfferReward {
+                            showRewardOffer = true
+                        } else {
+                            // Normal flow: interstitial check + new game
+                            AdManager.shared.showInterstitialIfScheduled()
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                game.newGame()
+                            }
+                        }
+                    }
+                }
+
+                // Reward offer overlay (opt-in to ad)
+                if showRewardOffer {
+                    RewardOfferView(
+                        onWatchAd: {
+                            showRewardOffer = false
+                            AdManager.shared.showRewardedAd { success in
+                                if success {
+                                    // Grant reward and show chest
+                                    let reward = game.grantReward()
+                                    pendingReward = reward
+                                    showRewardChest = true
+                                } else {
+                                    // Ad failed — just start new game
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        game.newGame()
+                                    }
+                                }
+                            }
+                        },
+                        onDecline: {
+                            showRewardOffer = false
+                            AdManager.shared.declineReward()
+                            // Normal flow: interstitial check + new game
+                            AdManager.shared.showInterstitialIfScheduled()
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                game.newGame()
+                            }
+                        }
+                    )
+                    .transition(.opacity)
+                }
+
+                // Reward chest animation (after watching ad)
+                if showRewardChest, let reward = pendingReward {
+                    RewardChestView(reward: reward) {
+                        showRewardChest = false
+                        pendingReward = nil
                         withAnimation(.easeInOut(duration: 0.3)) {
                             game.newGame()
                         }
                     }
+                    .transition(.opacity)
                 }
 
                 // Random celebration (pops up from bottom on round complete)
@@ -444,40 +514,7 @@ struct PrismGameView: View {
 
     // MARK: - Sub-Target Complete Overlay
 
-    private var subTargetOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.15)
-                .ignoresSafeArea()
-
-            VStack(spacing: 8) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 36))
-                    .foregroundStyle(Color(hex: 0x2A9D8F))
-
-                Text("\(game.currentTargetNumber)/\(game.totalTargetsThisRound)")
-                    .font(.system(size: 20, weight: .black, design: .serif))
-                    .foregroundStyle(Color(hex: 0x2A2A3A))
-
-                Text("Next color...")
-                    .font(.system(size: 12, weight: .medium, design: .serif))
-                    .foregroundStyle(Color(hex: 0xAAAAAA))
-
-                if let combo = game.comboMessage {
-                    Text(combo)
-                        .font(.system(size: 14, weight: .black, design: .serif))
-                        .foregroundStyle(Color(hex: 0xF59E0B))
-                        .tracking(2)
-                        .padding(.top, 4)
-                }
-            }
-            .padding(.horizontal, 36)
-            .padding(.vertical, 24)
-            .background(glassCard(cornerRadius: 24))
-        }
-        .transition(.opacity)
-    }
-
-    // MARK: - Round Complete (removed blocking overlay — now uses FloatingPointsView)
+    // MARK: - Round Complete (non-blocking FloatingPointsView)
 
     // MARK: - Achievement Unlock Row (legacy — kept for reference)
 
@@ -566,7 +603,7 @@ struct PrismGameView: View {
                     get: { game.showColorLabels },
                     set: { game.showColorLabels = $0 }
                 ))
-                .tint(Color(hex: 0x2A9D8F))
+                .tint(Color(hex: 0xE8876B))
 
                 Button {
                     showSettings = false
@@ -591,11 +628,11 @@ struct PrismGameView: View {
                 }
 
                 Section {
-                    rulesRow(icon: "drop.fill", color: Color(hex: 0x457B9D),
+                    rulesRow(icon: "drop.fill", color: Color(hex: 0xD4724A),
                              text: "Tap two tiles to blend their colors together")
                     rulesRow(icon: "target", color: Color(hex: 0xE63946),
                              text: "Mix colors to match the target shown above the board")
-                    rulesRow(icon: "arrow.triangle.merge", color: Color(hex: 0x2A9D8F),
+                    rulesRow(icon: "arrow.triangle.merge", color: Color(hex: 0xE8876B),
                              text: "Red, Yellow, and Blue are primary colors — all other colors are made by mixing them")
                     rulesRow(icon: "heart.fill", color: Color(hex: 0xFF5E6C),
                              text: "You start with 3 lives. Spend one to retry a failed round")

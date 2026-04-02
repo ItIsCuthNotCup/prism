@@ -32,7 +32,7 @@ struct AchievementsView: View {
                         .font(.system(size: 28, weight: .black, design: .serif))
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [Color(hex: 0x457B9D), Color(hex: 0x2A9D8F)],
+                                colors: [Color(hex: 0xD4724A), Color(hex: 0xE8876B)],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )

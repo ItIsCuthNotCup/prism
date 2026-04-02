@@ -400,68 +400,71 @@ final class SoundManager {
 
     private enum CelebrationStyle { case clapping, chase, binoculars, stretch, roll }
 
-    /// Synthesize a short, playful sound for each celebration cat type.
-    /// All use the same square-wave "boop" family but with different patterns.
+    /// Synthesize a short, cheerful sound for each celebration cat type.
+    /// All are bright, major-key arpeggios — happy and rewarding.
     private func makeCelebrationSound(style: CelebrationStyle) -> AVAudioPCMBuffer {
         switch style {
         case .clapping:
-            // Excited ascending "boop boop boop!" — three quick rising pops
-            return makeArpeggio(
-                notes: [
-                    (freq: 587.33, delay: 0.0),     // D5
-                    (freq: 698.46, delay: 0.10),    // F5
-                    (freq: 880.00, delay: 0.20),    // A5
-                ],
-                noteDuration: 0.12,
-                volume: 0.22
-            )
-        case .chase:
-            // Quick scampering — fast ascending pitter-patter
-            return makeArpeggio(
-                notes: [
-                    (freq: 392.00, delay: 0.0),     // G4
-                    (freq: 440.00, delay: 0.05),    // A4
-                    (freq: 493.88, delay: 0.10),    // B4
-                    (freq: 523.25, delay: 0.15),    // C5
-                    (freq: 587.33, delay: 0.20),    // D5
-                ],
-                noteDuration: 0.08,
-                volume: 0.18
-            )
-        case .binoculars:
-            // Sneaky/curious — two low notes then a questioning high note
-            return makeArpeggio(
-                notes: [
-                    (freq: 329.63, delay: 0.0),     // E4
-                    (freq: 329.63, delay: 0.12),    // E4 (repeat)
-                    (freq: 523.25, delay: 0.28),    // C5 (curious rise)
-                ],
-                noteDuration: 0.14,
-                volume: 0.20
-            )
-        case .stretch:
-            // Lazy yawn — slow descending slide, warm tone
+            // Cheerful "ta-da!" — bright major triad bouncing up to the octave
             return makeArpeggio(
                 notes: [
                     (freq: 523.25, delay: 0.0),     // C5
-                    (freq: 440.00, delay: 0.15),    // A4
-                    (freq: 349.23, delay: 0.30),    // F4
+                    (freq: 659.25, delay: 0.07),    // E5
+                    (freq: 783.99, delay: 0.14),    // G5
+                    (freq: 1046.50, delay: 0.22),   // C6 (sparkle!)
                 ],
-                noteDuration: 0.18,
-                volume: 0.18,
-                warmth: 0.6
+                noteDuration: 0.15,
+                volume: 0.25
             )
-        case .roll:
-            // Playful tumble — descending then popping back up
+        case .chase:
+            // Zippy happy run — fast ascending pentatonic burst
             return makeArpeggio(
                 notes: [
-                    (freq: 659.25, delay: 0.0),     // E5
-                    (freq: 523.25, delay: 0.08),    // C5
-                    (freq: 392.00, delay: 0.16),    // G4
-                    (freq: 783.99, delay: 0.28),    // G5 (boing!)
+                    (freq: 523.25, delay: 0.0),     // C5
+                    (freq: 587.33, delay: 0.04),    // D5
+                    (freq: 659.25, delay: 0.08),    // E5
+                    (freq: 783.99, delay: 0.12),    // G5
+                    (freq: 1046.50, delay: 0.16),   // C6
                 ],
-                noteDuration: 0.12,
-                volume: 0.20
+                noteDuration: 0.10,
+                volume: 0.22
+            )
+        case .binoculars:
+            // Curious and delighted — playful rising 4ths with a happy landing
+            return makeArpeggio(
+                notes: [
+                    (freq: 392.00, delay: 0.0),     // G4
+                    (freq: 523.25, delay: 0.10),    // C5
+                    (freq: 659.25, delay: 0.22),    // E5 (ahh!)
+                ],
+                noteDuration: 0.18,
+                volume: 0.22
+            )
+        case .stretch:
+            // Cozy yawn-and-smile — warm rising arpeggio, gentle
+            return makeArpeggio(
+                notes: [
+                    (freq: 349.23, delay: 0.0),     // F4
+                    (freq: 440.00, delay: 0.12),    // A4
+                    (freq: 523.25, delay: 0.24),    // C5
+                    (freq: 698.46, delay: 0.36),    // F5 (ahhh)
+                ],
+                noteDuration: 0.20,
+                volume: 0.20,
+                warmth: 0.4
+            )
+        case .roll:
+            // Playful tumble with a happy boing — down-up bounce
+            return makeArpeggio(
+                notes: [
+                    (freq: 783.99, delay: 0.0),     // G5
+                    (freq: 659.25, delay: 0.06),    // E5
+                    (freq: 523.25, delay: 0.12),    // C5
+                    (freq: 783.99, delay: 0.22),    // G5 (boing!)
+                    (freq: 1046.50, delay: 0.30),   // C6 (wheee!)
+                ],
+                noteDuration: 0.14,
+                volume: 0.22
             )
         }
     }

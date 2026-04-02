@@ -6,6 +6,7 @@ struct TileView: View {
     var isMatched: Bool = false
     var isBlendResult: Bool = false
     var isBlending: Bool = false
+    var isPopping: Bool = false
     var isHinted: Bool = false
     var isPoison: Bool = false
     var showLabel: Bool = false
@@ -16,6 +17,7 @@ struct TileView: View {
 
     private var currentScale: CGFloat {
         if isBlending { return 0.3 }
+        if isPopping { return 1.18 }
         if isMatched { return 1.12 }
         if isBlendResult { return 1.06 }
         return 1.0
@@ -129,6 +131,7 @@ struct TileView: View {
                     }
                 }
             }
+            .animation(.spring(response: 0.15, dampingFraction: 0.5), value: isPopping)
             .animation(.easeIn(duration: 0.12), value: isBlending)
             .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isSelected)
             .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isMatched)

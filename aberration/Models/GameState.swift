@@ -26,6 +26,8 @@ class GameState {
     var matchedPosition: GridPosition? = nil
     var lastBlendPosition: GridPosition? = nil
     var blendingPositions: (GridPosition, GridPosition)? = nil
+    /// Positions currently in the "pop" phase (scale up before collapse)
+    var poppingPositions: Set<GridPosition> = []
     var showMilestone: Bool = false
 
     /// Positions that were emptied by the last successful match — excluded from next spawn
@@ -94,6 +96,95 @@ class GameState {
     var hintPositions: Set<GridPosition> = []
     var showMergeHint: Bool = false
 
+    // MARK: - Hint Tokens (earned from rewarded ads)
+
+    /// Persistent hint token count
+    var hintTokens: Int {
+        get { UserDefaults.standard.integer(forKey: "blent_hint_tokens") }
+        set { UserDefaults.standard.set(newValue, forKey: "blent_hint_tokens") }
+    }
+
+    /// Whether the hint highlight is currently active this round
+    var hintActive: Bool = false
+
+    /// Use a hint token: highlights the best pair to blend toward the target.
+    /// Returns true if a hint was successfully shown.
+    @discardableResult
+    func useHintToken() -> Bool {
+        guard hintTokens > 0, !isGameOver, !isProcessing, targetColor != nil else { return false }
+        guard let bestPair = findBestBlendPair() else { return false }
+
+        hintTokens -= 1
+        hintPositions = Set(bestPair)
+        hintActive = true
+        HapticManager.tilePlaced()
+        SoundManager.shared.playSelect()
+        return true
+    }
+
+    /// Find the pair of tiles on the board whose blend result is closest to the target.
+    private func findBestBlendPair() -> [GridPosition]? {
+        guard let target = targetColor else { return nil }
+
+        var bestDist = Int.max
+        var bestPair: [GridPosition]? = nil
+
+        let occupied: [(GridPosition, PrismColor)] = (0..<gridSize).flatMap { r in
+            (0..<gridSize).compactMap { c in
+                guard let color = grid[r][c] else { return nil }
+                return (GridPosition(row: r, col: c), color)
+            }
+        }
+
+        for i in 0..<occupied.count {
+            for j in (i+1)..<occupied.count {
+                let (posA, colorA) = occupied[i]
+                let (posB, colorB) = occupied[j]
+                let result = PrismColor.mix(colorA, colorB)
+                let diff = abs(result.wheelIndex - target.wheelIndex)
+                let dist = min(diff, PrismColor.wheelSize - diff)
+                if dist < bestDist {
+                    bestDist = dist
+                    bestPair = [posA, posB]
+                }
+            }
+        }
+
+        return bestPair
+    }
+
+    /// Grant a reward from watching an ad
+    enum RewardType: CaseIterable {
+        case extraLife
+        case hintToken
+    }
+
+    /// Grant a random reward. Returns what was granted.
+    func grantReward() -> RewardType {
+        // Weight toward what the player needs more
+        let needsLife = lives <= 1
+        let needsHint = hintTokens <= 0
+        let reward: RewardType
+
+        if needsLife && !needsHint {
+            reward = .extraLife
+        } else if needsHint && !needsLife {
+            reward = .hintToken
+        } else {
+            // Random 50/50
+            reward = RewardType.allCases.randomElement()!
+        }
+
+        switch reward {
+        case .extraLife:
+            lives += 1
+        case .hintToken:
+            hintTokens += 1
+        }
+
+        return reward
+    }
+
     // MARK: - Multi-Step Targets
 
     /// Remaining targets after the current one (for multi-step rounds)
@@ -105,12 +196,7 @@ class GameState {
     /// Brief overlay when hitting a sub-target
     var showSubTargetComplete: Bool = false
 
-    var targetCountForRound: Int {
-        if round < 15 { return 1 }
-        if round < 25 { return 2 }
-        if round < 40 { return 3 }
-        return 4
-    }
+    var targetCountForRound: Int { 1 }
 
     // MARK: - Poison Tiles (disabled — zen mode)
 
@@ -222,6 +308,21 @@ class GameState {
     var lastRoundMatchBonus: Int = 0
     var lastRoundComboBonus: Int = 0
 
+    // MARK: - Bonus System
+
+    /// Consecutive rounds completed without using undo
+    var cleanRoundStreak: Int = 0
+    /// Timestamp of first blend this round (for speed bonus)
+    var firstBlendTime: Date? = nil
+    /// Colors created for the first time this game (for explorer bonus)
+    var newColorsThisGame: Set<Int> = []
+    /// Bonus message to show as floating text (e.g. "Perfect Blend!")
+    var bonusMessage: String? = nil
+    /// Bonus amount to show alongside the message
+    var bonusAmount: Int = 0
+    /// Trigger for bonus animation
+    var bonusTrigger: Int = 0
+
     // MARK: - Floating Score Animation
     /// Total points earned on last round complete (triggers floating "+X" text)
     var floatingPointsAmount: Int = 0
@@ -229,6 +330,8 @@ class GameState {
     var floatingPointsMultiplier: Int = 1
     /// Toggled to trigger the floating points animation
     var floatingPointsTrigger: Int = 0
+    /// The color of the target that was just matched (for coloring the floating text)
+    var floatingPointsColor: Color = .gray
     /// Incremented on each round complete — used to trigger celebration cats
     var completedRoundCount: Int = 0
 
@@ -397,9 +500,17 @@ class GameState {
             undoScore = score
         }
 
-        blendingPositions = (posA, posB)
+        // Phase 1: Pop both tiles up
+        poppingPositions = [posA, posB]
 
         Task {
+            // Hold the pop for a beat
+            try? await Task.sleep(for: .milliseconds(100))
+
+            // Phase 2: Collapse into result
+            poppingPositions = []
+            blendingPositions = (posA, posB)
+
             try? await Task.sleep(for: .milliseconds(80))
 
             HapticManager.blend()
@@ -429,6 +540,18 @@ class GameState {
             // Track this color as discovered — feeds into background canvas
             discoveredColorIndices.insert(result.wheelIndex)
 
+            // Track first blend time for speed bonus
+            if firstBlendTime == nil {
+                firstBlendTime = Date()
+            }
+
+            // Color Explorer: +25 for creating a color new to this game
+            if !newColorsThisGame.contains(result.wheelIndex) {
+                newColorsThisGame.insert(result.wheelIndex)
+                let explorerBonus = 25 * scoreMultiplier
+                score += explorerBonus
+            }
+
             score += 10 * scoreMultiplier
             blendsThisTarget += 1
             totalBlendsThisGame += 1
@@ -446,9 +569,7 @@ class GameState {
                 lastRoundBlendPoints = blendsThisTarget * 10
                 lastRoundMatchBonus = roundBonus
 
-                // Combo bonus
-                let comboText = evaluateCombo()
-                lastRoundComboBonus = comboText != nil ? (blendsThisTarget < parForCurrentTarget ? 200 : 100) : 0
+                lastRoundComboBonus = 0
 
                 updateHighScore()
                 try? await Task.sleep(for: .milliseconds(250))
@@ -460,79 +581,50 @@ class GameState {
                 matchedPosition = nil
                 lastBlendPosition = nil
 
-                if !pendingTargets.isEmpty {
-                    // Record stats for sub-target completion
-                    captureNewAchievements {
-                        StatsManager.shared.recordRoundComplete(
-                            colorName: target.name,
-                            blendsUsed: blendsThisTarget,
-                            par: parForCurrentTarget,
-                            isMultiTarget: true
-                        )
-                    }
-                    // Multi-step: show brief sub-target overlay, then advance
-                    if let ct = comboText {
-                        comboMessage = ct
-                    }
-                    SoundManager.shared.playRoundComplete()
-
-                    showSubTargetComplete = true
-                    try? await Task.sleep(for: .milliseconds(350))
-                    showSubTargetComplete = false
-                    comboMessage = nil
-
-                    // Safety: if game over fired during overlay, don't advance
-                    guard !isGameOver else {
-                        isProcessing = false
-                        return
-                    }
-
-                    advanceToNextTarget()
-                    isProcessing = false
-                } else {
-                    // Final (or only) target — full round complete (non-blocking)
-                    // Record stats for the completed target
-                    captureNewAchievements {
-                        StatsManager.shared.recordRoundComplete(
-                            colorName: target.name,
-                            blendsUsed: blendsThisTarget,
-                            par: parForCurrentTarget,
-                            isMultiTarget: totalTargetsThisRound > 1
-                        )
-                    }
-                    let completedRound = round
-                    let isMilestone = completedRound % 4 == 0 && completedRound > 0
-                    if isMilestone {
-                        SoundManager.shared.playMilestone()
-                    } else {
-                        SoundManager.shared.playRoundComplete()
-                    }
-
-                    if let ct = comboText {
-                        comboMessage = ct
-                    }
-
-                    // Trigger floating points animation (non-blocking)
-                    let totalEarned = lastRoundBlendPoints + lastRoundMatchBonus + lastRoundComboBonus
-                    floatingPointsAmount = totalEarned
-                    floatingPointsMultiplier = scoreMultiplier
-                    floatingPointsTrigger += 1
-                    completedRoundCount += 1
-
-                    tunnelDepth += 1
-
-                    // Brief pause for visual match feedback, then immediately continue
-                    try? await Task.sleep(for: .milliseconds(350))
-
-                    guard !isGameOver else {
-                        isProcessing = false
-                        return
-                    }
-
-                    comboMessage = nil
-                    startNewRound()
-                    isProcessing = false
+                // Round complete (non-blocking)
+                captureNewAchievements {
+                    StatsManager.shared.recordRoundComplete(
+                        colorName: target.name,
+                        blendsUsed: blendsThisTarget,
+                        par: 0,
+                        isMultiTarget: false
+                    )
                 }
+                let completedRound = round
+                let isMilestone = completedRound % 4 == 0 && completedRound > 0
+                if isMilestone {
+                    SoundManager.shared.playMilestone()
+                } else {
+                    SoundManager.shared.playRoundComplete()
+                }
+
+                // Evaluate round bonuses (perfect blend, efficiency, streak, speed)
+                let roundBonuses = evaluateBonuses()
+                updateHighScore()  // re-check after bonuses
+
+                // Trigger floating points animation (non-blocking)
+                let totalEarned = lastRoundBlendPoints + lastRoundMatchBonus + lastRoundComboBonus + roundBonuses
+                floatingPointsAmount = totalEarned
+                floatingPointsMultiplier = scoreMultiplier
+                floatingPointsColor = target.color
+                floatingPointsTrigger += 1
+                completedRoundCount += 1
+
+                // Reset per-round tracking
+                firstBlendTime = nil
+
+                tunnelDepth += 1
+
+                // Brief pause for visual match feedback, then immediately continue
+                try? await Task.sleep(for: .milliseconds(350))
+
+                guard !isGameOver else {
+                    isProcessing = false
+                    return
+                }
+
+                startNewRound()
+                isProcessing = false
             } else {
                 // Near-miss proximity feedback
                 if let target = targetColor {
@@ -597,6 +689,61 @@ class GameState {
         return nil
     }
 
+    // MARK: - Bonus Evaluation
+
+    /// Evaluate all round-complete bonuses. Returns total bonus points awarded.
+    private func evaluateBonuses() -> Int {
+        var totalBonus = 0
+        var messages: [String] = []
+
+        // 1. Perfect Blend: matched target in exactly 1 blend
+        if blendsThisTarget == 1 {
+            let bonus = 150 * scoreMultiplier
+            totalBonus += bonus
+            messages.append("Perfect Blend! +\(bonus)")
+        }
+
+        // 2. Efficiency: matched in minimum blends (par) — only if > 1 blend
+        if blendsThisTarget > 1 && parForCurrentTarget > 0 && blendsThisTarget <= parForCurrentTarget {
+            let bonus = 100 * scoreMultiplier
+            totalBonus += bonus
+            messages.append("Efficient! +\(bonus)")
+        }
+
+        // 3. No-Undo Streak: 3+ consecutive clean rounds
+        if !undoUsedThisRound {
+            cleanRoundStreak += 1
+        } else {
+            cleanRoundStreak = 0
+        }
+        if cleanRoundStreak >= 3 && cleanRoundStreak % 3 == 0 {
+            let bonus = 75 * scoreMultiplier
+            totalBonus += bonus
+            messages.append("Clean Streak! +\(bonus)")
+        }
+
+        // 4. Speed Demon: completed within 5 seconds of first blend
+        if let startTime = firstBlendTime {
+            let elapsed = Date().timeIntervalSince(startTime)
+            if elapsed <= 5.0 && blendsThisTarget >= 1 {
+                let bonus = 50 * scoreMultiplier
+                totalBonus += bonus
+                messages.append("Speed Demon! +\(bonus)")
+            }
+        }
+
+        // Apply bonus
+        if totalBonus > 0 {
+            score += totalBonus
+            // Show the first (most impressive) bonus message
+            bonusMessage = messages.first
+            bonusAmount = totalBonus
+            bonusTrigger += 1
+        }
+
+        return totalBonus
+    }
+
     // MARK: - Undo Action
 
     func undoLastBlend() {
@@ -630,6 +777,7 @@ class GameState {
         comboBonusTotal = 0
         comboMessage = nil
         goldenPositions = []
+        hintActive = false
 
         // Decrement score multiplier
         if multiplierRoundsLeft > 0 {
@@ -969,11 +1117,14 @@ class GameState {
         matchedPosition = nil
         lastBlendPosition = nil
         blendingPositions = nil
+        poppingPositions = []
         proximityHint = nil
         proximityHintPosition = nil
         undoGrid = nil
         undoScore = nil
         undoUsedThisRound = false
+        cleanRoundStreak = 0
+        firstBlendTime = nil
 
         // Restart the same round: decrement so startNewRound increments back,
         // and also decrement totalRoundsCompletedThisGame since startNewRound will
@@ -1012,12 +1163,19 @@ class GameState {
         matchedPosition = nil
         lastBlendPosition = nil
         blendingPositions = nil
+        poppingPositions = []
+        cleanRoundStreak = 0
+        firstBlendTime = nil
+        newColorsThisGame = []
+        bonusMessage = nil
+        bonusAmount = 0
         showMilestone = false
         undoGrid = nil
         undoScore = nil
         undoUsedThisRound = false
         hintPositions = []
         showMergeHint = false
+        hintActive = false
         targetColor = nil
         pendingTargets = []
         totalTargetsThisRound = 1

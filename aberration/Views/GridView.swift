@@ -79,6 +79,7 @@ struct GridView: View {
             guard let (a, b) = game.blendingPositions else { return false }
             return pos == a || pos == b
         }()
+        let isPopping = game.poppingPositions.contains(pos)
         let isHinted = game.hintPositions.contains(pos)
         let isPoison = game.poisonPositions.contains(pos)
         let isGolden = game.goldenPositions.contains(pos)
@@ -97,6 +98,7 @@ struct GridView: View {
                 isMatched: isMatched,
                 isBlendResult: isBlendResult,
                 isBlending: isBlending,
+                isPopping: isPopping,
                 isHinted: isHinted,
                 isPoison: isPoison,
                 showLabel: game.showColorLabels,
