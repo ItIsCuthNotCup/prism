@@ -199,7 +199,7 @@ struct RewardChestView: View {
     private var rewardSubtitle: String {
         switch reward {
         case .extraLife: return "Retry a round when you run out of moves"
-        case .hintToken: return "Highlights the best pair to blend"
+        case .hintToken: return "Highlights the best pair to mix"
         }
     }
 

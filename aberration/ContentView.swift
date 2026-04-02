@@ -20,6 +20,7 @@ struct PrismGameView: View {
     @State private var activeCelebration: CelebrationType? = nil
     @State private var glowPulse = false
     @State private var aberrationPhase: Double = 0
+    @State private var gameOverShake: CGFloat = 0
     /// Countdown: celebration triggers when this hits 0, then resets to a new random 1–6.
     @State private var roundsUntilCelebration: Int = Int.random(in: 1...6)
     /// Cycles through celebration types so they alternate (no long streaks of the same one).
@@ -54,7 +55,7 @@ struct PrismGameView: View {
                                 .foregroundStyle(Color(hex: 0x555555))
                         }
                     }
-                    .padding(.bottom, 4)
+                    .padding(.bottom, 0)
 
                   // ── Top container with cat peeking over ──
                   ZStack(alignment: .top) {
@@ -63,10 +64,10 @@ struct PrismGameView: View {
                         .interpolation(.none)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .frame(height: 72)
+                        .frame(height: 56)
 
                     // 2) Card drawn on top — covers cat's body
-                    VStack(spacing: 8) {
+                    VStack(spacing: 4) {
                       // Stats bar — SCORE is the hero
                       HStack(alignment: .center, spacing: 0) {
                           secondaryStat(label: "ROUND", value: "\(game.round)")
@@ -74,11 +75,9 @@ struct PrismGameView: View {
                           livesDisplay
                           Spacer()
                           heroStat(label: "SCORE", value: "\(game.score)")
-                          Spacer()
-                          secondaryStat(label: "BEST", value: "\(game.highScore)", accent: true)
                       }
                       .padding(.horizontal, 20)
-                      .padding(.vertical, 10)
+                      .padding(.vertical, 6)
 
                     // Target color + progress + blend preview
                     if let target = game.targetColor {
@@ -103,22 +102,13 @@ struct PrismGameView: View {
                                     RoundedRectangle(cornerRadius: 14)
                                         .strokeBorder(.white.opacity(0.5), lineWidth: 0.5)
                                 )
-                                .frame(width: cellSize * 1.6, height: cellSize * 1.6)
+                                .frame(width: cellSize * 1.2, height: cellSize * 1.2)
                                 .shadow(color: target.color.opacity(0.3), radius: 16, y: 4)
 
-                            VStack(spacing: 3) {
-                                Text(target.name.uppercased())
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundStyle(Color(hex: 0x3A3A4A))
-                                    .tracking(3)
-
-                                // Blend hint (step count) — separate line, lighter
-                                if game.parForCurrentTarget > 0 {
-                                    Text("\(game.parForCurrentTarget) \(game.parForCurrentTarget == 1 ? "blend" : "blends")")
-                                        .font(.system(size: 11, weight: .medium, design: .serif))
-                                        .foregroundStyle(Color(hex: 0xBBBBBB))
-                                }
-                            }
+                            Text(target.name.uppercased())
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(Color(hex: 0x3A3A4A))
+                                .tracking(3)
 
                             // Blend preview / hint (inside the card)
                             ZStack {
@@ -127,14 +117,14 @@ struct PrismGameView: View {
                                         RoundedRectangle(cornerRadius: 3)
                                             .fill(sel.color)
                                             .frame(width: 12, height: 12)
-                                        Text("\(sel.shortName) + ?")
+                                        Text("\(sel.name) + ?")
                                             .font(.system(size: 12, weight: .medium))
                                             .foregroundStyle(Color(hex: 0xAAAAAA))
                                     }
                                 }
 
-                                Text("Tap two colors to blend them")
-                                    .font(.system(size: 14, weight: .medium))
+                                Text("Tap two colors to mix")
+                                    .font(.system(size: 12, weight: .medium))
                                     .foregroundStyle(Color(hex: 0x999999))
                                     .tracking(1)
                                     .opacity(game.showMergeHint && game.selectedColor == nil ? 1 : 0)
@@ -143,7 +133,7 @@ struct PrismGameView: View {
                             .animation(.easeInOut(duration: 0.15), value: game.selectedPosition)
                         }
                         .padding(.horizontal, 20)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, 4)
                         .id(target.wheelIndex)
                         .transition(.scale.combined(with: .opacity))
                         .animation(.spring(response: 0.4), value: target.wheelIndex)
@@ -159,7 +149,7 @@ struct PrismGameView: View {
                     )
                   } // end ZStack (cat + top card)
 
-                    Spacer(minLength: 24)
+                    Spacer(minLength: 8)
 
                   // ── Bottom container: grid + buttons ──
                   VStack(spacing: 0) {
@@ -193,7 +183,7 @@ struct PrismGameView: View {
                                         .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
                                 )
                             }
-                            .opacity(game.canUndo ? 1 : 0)
+                            .opacity(game.canUndo ? 1 : 0.25)
                             .allowsHitTesting(game.canUndo)
 
                             Spacer()
@@ -241,15 +231,10 @@ struct PrismGameView: View {
                             }
                         } label: {
                             Text("New Game")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(.white)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Color(hex: 0x3A3A4A))
                                 .padding(.horizontal, 22)
                                 .padding(.vertical, 11)
-                                .background(
-                                    Capsule()
-                                        .fill(Color(hex: 0x2A2A2A))
-                                        .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
-                                )
                         }
                     }
                     .padding(.top, 4)
@@ -289,6 +274,7 @@ struct PrismGameView: View {
                 .padding(.top, 8)
                 .frame(maxWidth: maxContentWidth)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .offset(x: gameOverShake)
 
                 // Floating points animation (non-blocking)
                 FloatingPointsView(
@@ -317,6 +303,7 @@ struct PrismGameView: View {
                         closestDistance: game.closestColorDistance,
                         totalBlends: game.totalBlendsThisGame,
                         lives: game.lives,
+                        hintTokens: game.hintTokens,
                         onUseLife: {
                             withAnimation(.easeInOut(duration: 0.3)) {
                                 game.useLife()
@@ -415,8 +402,23 @@ struct PrismGameView: View {
                 roundsUntilCelebration = Int.random(in: 1...6)
             }
         }
-        .onChange(of: game.isGameOver) { _, _ in
-            // Game over state change — ad now triggers on Play Again tap, not here
+        .onChange(of: game.isGameOver) { _, isOver in
+            if isOver {
+                // Screen shake feedback on game over
+                withAnimation(.spring(response: 0.08, dampingFraction: 0.3)) {
+                    gameOverShake = 8
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    withAnimation(.spring(response: 0.08, dampingFraction: 0.3)) {
+                        gameOverShake = -6
+                    }
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    withAnimation(.spring(response: 0.1, dampingFraction: 0.5)) {
+                        gameOverShake = 0
+                    }
+                }
+            }
         }
         .sheet(isPresented: $showSettings) {
             settingsView
@@ -657,17 +659,17 @@ struct PrismGameView: View {
 
                 Section {
                     rulesRow(icon: "drop.fill", color: Color(hex: 0xD4724A),
-                             text: "Tap two tiles to blend their colors together")
+                             text: "Tap two tiles to mix their colors")
                     rulesRow(icon: "target", color: Color(hex: 0xE63946),
-                             text: "Mix colors to match the target shown above the board")
+                             text: "Mix colors to match the target above the board")
                     rulesRow(icon: "arrow.triangle.merge", color: Color(hex: 0xE8876B),
-                             text: "Red, Yellow, and Blue are primary colors — all other colors are made by mixing them")
+                             text: "Red, Yellow, and Blue are primary — mix them to make any color")
                     rulesRow(icon: "heart.fill", color: Color(hex: 0xFF5E6C),
-                             text: "You start with 3 lives. Spend one to retry a failed round")
+                             text: "3 lives. Spend one to retry a round")
                     rulesRow(icon: "heart.circle.fill", color: Color(hex: 0xA080E0),
-                             text: "Survive 10 rounds without using a life to earn a bonus life")
+                             text: "Survive 10 rounds without losing a life to earn a bonus life")
                     rulesRow(icon: "arrow.counterclockwise", color: Color(hex: 0xF59E0B),
-                             text: "Use undo to take back your last blend (once per round)")
+                             text: "Undo takes back your last move, once per round")
                 } header: {
                     Text("How to Play")
                 }
@@ -718,11 +720,11 @@ struct PrismGameView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         howToPlayRow(
                             icon: "hand.tap",
-                            text: "Tap two tiles to blend their colors together"
+                            text: "Tap two tiles to mix their colors"
                         )
                         howToPlayRow(
                             icon: "target",
-                            text: "Match the target color shown at the top"
+                            text: "Match the target color at the top"
                         )
                         howToPlayRow(
                             icon: "paintpalette",
@@ -730,11 +732,11 @@ struct PrismGameView: View {
                         )
                         howToPlayRow(
                             icon: "heart",
-                            text: "You have 3 lives. Spend one to retry a failed round"
+                            text: "You have 3 lives. Spend one to retry a round"
                         )
                         howToPlayRow(
                             icon: "arrow.counterclockwise",
-                            text: "Undo takes back your last blend, once per round"
+                            text: "Undo takes back your last move, once per round"
                         )
                     }
                     .padding(.horizontal, 32)
@@ -779,7 +781,7 @@ struct PrismGameView: View {
                             .foregroundStyle(Color(hex: 0x2A2A2A))
                             .tracking(2)
 
-                        Text("A color-blending puzzle")
+                        Text("A color-mixing puzzle")
                             .font(.system(size: 15, weight: .medium, design: .serif))
                             .foregroundStyle(Color(hex: 0x999999))
                     }

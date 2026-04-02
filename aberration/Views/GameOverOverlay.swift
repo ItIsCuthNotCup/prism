@@ -11,6 +11,7 @@ struct GameOverOverlay: View {
     let closestDistance: Int
     let totalBlends: Int
     let lives: Int
+    let hintTokens: Int
     let onUseLife: () -> Void
     let onPlayAgain: () -> Void
 
@@ -18,28 +19,33 @@ struct GameOverOverlay: View {
     @State private var showAchievements = false
 
     private var isNewHighScore: Bool { score >= highScore && score > 0 }
-    private var isNewBestRound: Bool { round >= bestRound && round > 1 }
 
-    /// The near-miss message — the Zeigarnik hook
+    /// Vary the header based on how far the player got
+    private var headerText: String {
+        if isNewHighScore { return "New Record" }
+        if round >= 40 { return "Incredible" }
+        if round >= 25 { return "Great Run" }
+        if round >= 10 { return "Nice Try" }
+        return "Game Over"
+    }
+
+    /// The near-miss hook
     private var nearMissMessage: String? {
-        // Priority 1: Almost beat high score
         if !isNewHighScore && highScore > 0 {
             let diff = highScore - score
             if diff <= 500 {
-                return "Just \(diff) points from your record"
+                return "\(diff) points from your best"
             }
         }
 
-        // Priority 2: Close to next milestone round
         let nextMilestone = ((round / 5) + 1) * 5
         let roundsAway = nextMilestone - round
         if roundsAway <= 2 {
-            return "\(roundsAway == 1 ? "1 round" : "\(roundsAway) rounds") from Round \(nextMilestone)"
+            return "\(roundsAway) round\(roundsAway == 1 ? "" : "s") from Round \(nextMilestone)"
         }
 
-        // Priority 3: Had a color close to the target
         if closestDistance <= 2, let closest = closestColor, let target = targetColor {
-            return "\(closest.name) was so close to \(target.name)"
+            return "\(closest.name) was close to \(target.name)"
         }
 
         return nil
@@ -56,25 +62,14 @@ struct GameOverOverlay: View {
                     .padding(.bottom, 8)
 
                 // Header
-                VStack(spacing: 6) {
-                    if isNewHighScore {
-                        Text("NEW RECORD")
-                            .font(.system(size: 11, weight: .black, design: .serif))
-                            .foregroundStyle(Color(hex: 0xF59E0B))
-                            .tracking(4)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 4)
-                            .background(
-                                Capsule()
-                                    .fill(Color(hex: 0xF59E0B).opacity(0.12))
-                            )
-                    }
-
-                    Text("Out of moves")
-                        .font(.system(size: 22, weight: .semibold, design: .serif))
-                        .foregroundStyle(Color(hex: 0x3A3A4A))
-                }
-                .padding(.bottom, 16)
+                Text(headerText)
+                    .font(.system(size: 24, weight: .bold, design: .serif))
+                    .foregroundStyle(
+                        isNewHighScore
+                            ? Color(hex: 0xF59E0B)
+                            : Color(hex: 0x3A3A4A)
+                    )
+                    .padding(.bottom, 12)
 
                 // Score display
                 VStack(spacing: 4) {
@@ -101,12 +96,12 @@ struct GameOverOverlay: View {
                 // Stats row
                 HStack(spacing: 24) {
                     miniStat(label: "ROUND", value: "\(round)")
-                    miniStat(label: "BLENDS", value: "\(totalBlends)")
-                    if !isNewHighScore && highScore > 0 {
-                        miniStat(label: "BEST", value: "\(highScore)")
+                    miniStat(label: "BEST", value: "\(highScore)")
+                    if hintTokens > 0 {
+                        miniStat(label: "HINTS", value: "\(hintTokens)")
                     }
                 }
-                .padding(.bottom, 16)
+                .padding(.bottom, 12)
 
                 // The near-miss hook — this is the line that makes them hit Play Again
                 if let nearMiss = nearMissMessage {

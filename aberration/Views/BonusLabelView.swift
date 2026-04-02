@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Floating bonus label that appears on round complete.
 /// Each bonus type has its own color, icon, and animation feel:
-///   - Perfect Blend: pink sparkle, pops big
+///   - Perfect Mix: pink sparkle, pops big
 ///   - Efficient: green check, smooth slide
 ///   - Clean Streak: lavender flame, steady rise
 ///   - Speed Demon: yellow bolt, fast zip
@@ -38,8 +38,8 @@ struct BonusLabelView: View {
                         .font(.system(size: 18, weight: .black, design: .serif))
                 }
             }
-            .foregroundStyle(bonusColor)
-            .shadow(color: bonusColor.opacity(glowOpacity), radius: 12)
+            .foregroundStyle(Color(hex: 0x2A2A2A))
+            .shadow(color: bonusColor.opacity(glowOpacity * 0.5), radius: 8)
             .shadow(color: .white, radius: 4)
             .offset(x: shakeX, y: offsetY)
             .scaleEffect(scale)

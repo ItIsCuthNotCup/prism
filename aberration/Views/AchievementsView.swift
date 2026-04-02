@@ -268,7 +268,7 @@ struct AchievementsView: View {
         let stats = StatsManager.shared
         return HStack(spacing: 24) {
             footerStat(label: "GAMES", value: "\(stats.totalGames)")
-            footerStat(label: "BLENDS", value: "\(stats.totalBlends)")
+            footerStat(label: "MIXES", value: "\(stats.totalBlends)")
             footerStat(label: "BEST", value: "R\(stats.bestRound)")
             footerStat(label: "COLORS", value: "\(stats.discoveredColors.count)/\(PrismColor.wheelSize)")
         }

@@ -197,10 +197,10 @@ final class StatsManager {
         Achievement(id: "round_75",         name: "Shadow Blade",      description: "Reach Round 75",                        imageName: "ach_shadow_blade",    hue: 0.70),
         Achievement(id: "round_100",        name: "Moonlit",           description: "Reach Round 100",                       imageName: "ach_moonlit",         hue: 0.75),
 
-        // Row 3: Blending Mastery
-        Achievement(id: "blend_100",        name: "Sous Chef",         description: "100 lifetime blends",                   imageName: "ach_sous_chef",       hue: 0.08),
-        Achievement(id: "blend_1000",       name: "Ramen Master",      description: "1,000 lifetime blends",                 imageName: "ach_ramen_master",    hue: 0.05),
-        Achievement(id: "blend_5000",       name: "Caffeine Fueled",   description: "5,000 lifetime blends",                 imageName: "ach_caffeine_fueled", hue: 0.00),
+        // Row 3: Mixing Mastery
+        Achievement(id: "blend_100",        name: "Sous Chef",         description: "100 lifetime mixes",                    imageName: "ach_sous_chef",       hue: 0.08),
+        Achievement(id: "blend_1000",       name: "Ramen Master",      description: "1,000 lifetime mixes",                  imageName: "ach_ramen_master",    hue: 0.05),
+        Achievement(id: "blend_5000",       name: "Caffeine Fueled",   description: "5,000 lifetime mixes",                  imageName: "ach_caffeine_fueled", hue: 0.00),
         Achievement(id: "perfect_par",      name: "Bullseye",          description: "Match a target at par",                 imageName: "ach_bullseye",        hue: 0.08),
         Achievement(id: "under_par_10",     name: "Kickflip",          description: "Finish under par 10 times",             imageName: "ach_kickflip",        hue: 0.08),
 
@@ -222,7 +222,7 @@ final class StatsManager {
 
         // Row 6: Deep Expertise
         Achievement(id: "artiste",          name: "Artiste",           description: "Discover 42 different colors",          imageName: "ach_artiste",         hue: 0.08),
-        Achievement(id: "drop_the_beat",    name: "Drop the Beat",     description: "10,000 lifetime blends",                imageName: "ach_drop_the_beat",   hue: 0.70),
+        Achievement(id: "drop_the_beat",    name: "Drop the Beat",     description: "10,000 lifetime mixes",                 imageName: "ach_drop_the_beat",   hue: 0.70),
         Achievement(id: "green_thumb",      name: "Green Thumb",       description: "Complete 1,000 total rounds",           imageName: "ach_green_thumb",     hue: 0.35),
         Achievement(id: "rock_star",        name: "Rock Star",         description: "Score 50,000 in one game",              imageName: "ach_rock_star",       hue: 0.00),
         Achievement(id: "purrito",          name: "Purrito",           description: "Reach Round 150",                       imageName: "ach_purrito",         hue: 0.08),

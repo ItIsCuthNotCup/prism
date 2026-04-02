@@ -340,7 +340,7 @@ class GameState {
 
         var label: String {
             switch self {
-            case .perfectBlend: return "Perfect Blend!"
+            case .perfectBlend: return "Perfect Mix!"
             case .efficient:    return "Efficient!"
             case .cleanStreak:  return "Clean Streak!"
             case .speedDemon:   return "Speed Demon!"

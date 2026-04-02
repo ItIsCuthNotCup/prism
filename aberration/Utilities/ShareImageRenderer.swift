@@ -134,7 +134,7 @@ struct ShareImageRenderer {
 
             let stats: [(String, String)] = [
                 ("ROUND", "\(round)"),
-                ("BLENDS", "\(totalBlends)"),
+                ("MIXES", "\(totalBlends)"),
                 ("BEST", "\(highScore)")
             ]
 
@@ -173,7 +173,7 @@ struct ShareImageRenderer {
                 .font: UIFont.systemFont(ofSize: 32, weight: .medium),
                 .foregroundColor: UIColor(white: 0.55, alpha: 1)
             ]
-            let tagStr = "Blend colors. Match targets. Stay alive." as NSString
+            let tagStr = "Mix colors. Match targets. Stay alive." as NSString
             let tagSize = tagStr.size(withAttributes: tagAttrs)
             tagStr.draw(at: CGPoint(x: (w - tagSize.width) / 2, y: divY + 40),
                        withAttributes: tagAttrs)

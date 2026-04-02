@@ -83,7 +83,7 @@ struct GridView: View {
         let isHinted = game.hintPositions.contains(pos)
         let isPoison = game.poisonPositions.contains(pos)
         let isGolden = game.goldenPositions.contains(pos)
-        let proximityHint: GameState.ProximityHint? = game.proximityHintPosition == pos ? game.proximityHint : nil
+        // Proximity hints removed — they were visually noisy
 
         if let tileColor = game.tile(at: pos) {
             // Compute blend preview: small dot showing what this tile + selected tile would make
@@ -119,17 +119,6 @@ struct GridView: View {
                         .foregroundStyle(Color(hex: 0xFFD700))
                         .shadow(color: Color(hex: 0xFFD700), radius: 3)
                         .offset(x: 2, y: -2)
-                }
-            }
-            .overlay(alignment: .top) {
-                if let hint = proximityHint {
-                    proximityBadge(hint)
-                        .offset(y: -14)
-                        .transition(.asymmetric(
-                            insertion: .scale(scale: 0.5).combined(with: .opacity),
-                            removal: .opacity
-                        ))
-                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: game.proximityHint)
                 }
             }
         } else {
