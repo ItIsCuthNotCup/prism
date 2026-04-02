@@ -14,6 +14,11 @@ struct PrismGameView: View {
     @State private var showAchievements = false
     @State private var showNewGameConfirm = false
     @State private var showHowToPlay = false
+    @State private var activeCelebration: CelebrationType? = nil
+    /// Countdown: celebration triggers when this hits 0, then resets to a new random 1–6.
+    @State private var roundsUntilCelebration: Int = Int.random(in: 1...6)
+    /// Cycles through celebration types so they alternate (no long streaks of the same one).
+    @State private var nextCelebrationIndex: Int = Int.random(in: 0..<CelebrationType.allCases.count)
 
     var body: some View {
         GeometryReader { geo in
@@ -227,7 +232,7 @@ struct PrismGameView: View {
                     }
                     .padding(.top, 4)
                     .padding(.bottom, 6)
-                    .opacity(game.showRoundComplete || game.isGameOver || game.showSubTargetComplete ? 0 : 1)
+                    .opacity(game.isGameOver || game.showSubTargetComplete ? 0 : 1)
                     .animation(.easeInOut(duration: 0.2), value: game.canUndo)
                   } // end bottom container
                   .padding(.horizontal, 4)
@@ -244,10 +249,13 @@ struct PrismGameView: View {
                     subTargetOverlay
                 }
 
-                // Round complete overlay
-                if game.showRoundComplete {
-                    roundCompleteOverlay
-                }
+                // Floating points animation (non-blocking)
+                FloatingPointsView(
+                    amount: game.floatingPointsAmount,
+                    multiplier: game.floatingPointsMultiplier,
+                    trigger: game.floatingPointsTrigger,
+                    combo: game.comboMessage
+                )
 
                 // Game over overlay
                 if game.isGameOver {
@@ -276,6 +284,12 @@ struct PrismGameView: View {
                     }
                 }
 
+                // Random celebration (pops up from bottom on round complete)
+                if let celebration = activeCelebration {
+                    celebrationView(for: celebration)
+                        .transition(.identity)
+                }
+
                 // Achievement toast (top-right corner)
                 if let toast = game.achievementToast {
                     VStack {
@@ -295,6 +309,16 @@ struct PrismGameView: View {
         }
         .background(Color(hex: 0xF5F5F7))
         .preferredColorScheme(.light)
+        .onChange(of: game.completedRoundCount) { _, _ in
+            // Countdown-based celebration: triggers after 1–6 rounds, then resets
+            roundsUntilCelebration -= 1
+            if roundsUntilCelebration <= 0 {
+                let types = CelebrationType.allCases
+                activeCelebration = types[nextCelebrationIndex % types.count]
+                nextCelebrationIndex = (nextCelebrationIndex + 1) % types.count
+                roundsUntilCelebration = Int.random(in: 1...6)
+            }
+        }
         .onChange(of: game.isGameOver) { _, _ in
             // Game over state change — ad now triggers on Play Again tap, not here
         }
@@ -453,80 +477,7 @@ struct PrismGameView: View {
         .transition(.opacity)
     }
 
-    // MARK: - Round Complete Overlays
-
-    private var roundCompleteOverlay: some View {
-        ZStack {
-            Color.black.opacity(game.showMilestone ? 0.3 : 0.2)
-                .ignoresSafeArea()
-
-            if game.showMilestone {
-                milestoneContent
-            } else {
-                normalRoundContent
-            }
-
-            // (tap to continue is now inside the overlay cards)
-        }
-        .onTapGesture {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                game.dismissRoundComplete()
-            }
-        }
-        .transition(.opacity)
-        .animation(.easeInOut(duration: 0.3), value: game.showRoundComplete)
-    }
-
-    private var normalRoundContent: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 36))
-                .foregroundStyle(Color(hex: 0x2A9D8F))
-                .shadow(color: Color(hex: 0x2A9D8F).opacity(0.2), radius: 10)
-
-            Text("Round \(game.round)")
-                .font(.system(size: 18, weight: .semibold, design: .serif))
-                .foregroundStyle(Color(hex: 0x3A3A4A))
-
-            if let combo = game.comboMessage {
-                Text(combo)
-                    .font(.system(size: 12, weight: .bold, design: .serif))
-                    .foregroundStyle(Color(hex: 0x2A9D8F))
-                    .tracking(1)
-            }
-        }
-        .padding(.horizontal, 44)
-        .padding(.vertical, 24)
-        .background(glassCard(cornerRadius: 24))
-    }
-
-    private var milestoneContent: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 28))
-                .foregroundStyle(Color(hex: 0xF59E0B))
-                .shadow(color: Color(hex: 0xF59E0B).opacity(0.25), radius: 10)
-
-            Text("Round \(game.round)")
-                .font(.system(size: 20, weight: .semibold, design: .serif))
-                .foregroundStyle(Color(hex: 0x3A3A4A))
-
-            Text("Milestone")
-                .font(.system(size: 11, weight: .medium, design: .serif))
-                .foregroundStyle(Color(hex: 0xBBBBBB))
-                .tracking(2)
-
-            if let combo = game.comboMessage {
-                Text(combo)
-                    .font(.system(size: 12, weight: .bold, design: .serif))
-                    .foregroundStyle(Color(hex: 0xF59E0B))
-                    .tracking(1)
-            }
-        }
-        .padding(.horizontal, 44)
-        .padding(.vertical, 24)
-        .background(glassCard(cornerRadius: 24))
-    }
+    // MARK: - Round Complete (removed blocking overlay — now uses FloatingPointsView)
 
     // MARK: - Achievement Unlock Row (legacy — kept for reference)
 
@@ -822,6 +773,34 @@ struct PrismGameView: View {
                 .font(.system(size: 14, weight: .regular, design: .serif))
                 .foregroundStyle(Color(hex: 0x4A4A5A))
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    // MARK: - Celebrations
+
+    @ViewBuilder
+    private func celebrationView(for type: CelebrationType) -> some View {
+        switch type {
+        case .clappingCat:
+            CelebrationCatView {
+                activeCelebration = nil
+            }
+        case .mouseChase:
+            ChaseCatView {
+                activeCelebration = nil
+            }
+        case .binocularsCat:
+            BinocularsCatView {
+                activeCelebration = nil
+            }
+        case .stretchCat:
+            StretchCatView {
+                activeCelebration = nil
+            }
+        case .rollCat:
+            RollCatView {
+                activeCelebration = nil
+            }
         }
     }
 

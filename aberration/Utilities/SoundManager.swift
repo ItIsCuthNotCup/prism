@@ -38,6 +38,13 @@ final class SoundManager {
     /// 8-bit cat theme loop
     private var themeBuffer: AVAudioPCMBuffer?
 
+    // Celebration cat sound buffers
+    private var clappingCatBuffer: AVAudioPCMBuffer?
+    private var chaseCatBuffer: AVAudioPCMBuffer?
+    private var binocularsCatBuffer: AVAudioPCMBuffer?
+    private var stretchCatBuffer: AVAudioPCMBuffer?
+    private var rollCatBuffer: AVAudioPCMBuffer?
+
     // MARK: - Init
 
     private init() {
@@ -122,6 +129,13 @@ final class SoundManager {
 
         // 8-bit cat theme music
         themeBuffer = makeTheme()
+
+        // Celebration cat sounds
+        clappingCatBuffer = makeCelebrationSound(style: .clapping)
+        chaseCatBuffer = makeCelebrationSound(style: .chase)
+        binocularsCatBuffer = makeCelebrationSound(style: .binoculars)
+        stretchCatBuffer = makeCelebrationSound(style: .stretch)
+        rollCatBuffer = makeCelebrationSound(style: .roll)
     }
 
     // MARK: - Theme Music (loaded from theme_intro.wav)
@@ -380,6 +394,116 @@ final class SoundManager {
         }
 
         return buffer
+    }
+
+    // MARK: - Celebration Cat Sounds
+
+    private enum CelebrationStyle { case clapping, chase, binoculars, stretch, roll }
+
+    /// Synthesize a short, playful sound for each celebration cat type.
+    /// All use the same square-wave "boop" family but with different patterns.
+    private func makeCelebrationSound(style: CelebrationStyle) -> AVAudioPCMBuffer {
+        switch style {
+        case .clapping:
+            // Excited ascending "boop boop boop!" — three quick rising pops
+            return makeArpeggio(
+                notes: [
+                    (freq: 587.33, delay: 0.0),     // D5
+                    (freq: 698.46, delay: 0.10),    // F5
+                    (freq: 880.00, delay: 0.20),    // A5
+                ],
+                noteDuration: 0.12,
+                volume: 0.22
+            )
+        case .chase:
+            // Quick scampering — fast ascending pitter-patter
+            return makeArpeggio(
+                notes: [
+                    (freq: 392.00, delay: 0.0),     // G4
+                    (freq: 440.00, delay: 0.05),    // A4
+                    (freq: 493.88, delay: 0.10),    // B4
+                    (freq: 523.25, delay: 0.15),    // C5
+                    (freq: 587.33, delay: 0.20),    // D5
+                ],
+                noteDuration: 0.08,
+                volume: 0.18
+            )
+        case .binoculars:
+            // Sneaky/curious — two low notes then a questioning high note
+            return makeArpeggio(
+                notes: [
+                    (freq: 329.63, delay: 0.0),     // E4
+                    (freq: 329.63, delay: 0.12),    // E4 (repeat)
+                    (freq: 523.25, delay: 0.28),    // C5 (curious rise)
+                ],
+                noteDuration: 0.14,
+                volume: 0.20
+            )
+        case .stretch:
+            // Lazy yawn — slow descending slide, warm tone
+            return makeArpeggio(
+                notes: [
+                    (freq: 523.25, delay: 0.0),     // C5
+                    (freq: 440.00, delay: 0.15),    // A4
+                    (freq: 349.23, delay: 0.30),    // F4
+                ],
+                noteDuration: 0.18,
+                volume: 0.18,
+                warmth: 0.6
+            )
+        case .roll:
+            // Playful tumble — descending then popping back up
+            return makeArpeggio(
+                notes: [
+                    (freq: 659.25, delay: 0.0),     // E5
+                    (freq: 523.25, delay: 0.08),    // C5
+                    (freq: 392.00, delay: 0.16),    // G4
+                    (freq: 783.99, delay: 0.28),    // G5 (boing!)
+                ],
+                noteDuration: 0.12,
+                volume: 0.20
+            )
+        }
+    }
+
+    func playClappingCat() {
+        startEngine()
+        guard let buffer = clappingCatBuffer else { return }
+        playerNode.stop()
+        playerNode.scheduleBuffer(buffer, completionHandler: nil)
+        playerNode.play()
+    }
+
+    func playChaseCat() {
+        startEngine()
+        guard let buffer = chaseCatBuffer else { return }
+        playerNode.stop()
+        playerNode.scheduleBuffer(buffer, completionHandler: nil)
+        playerNode.play()
+    }
+
+    func playBinocularsCat() {
+        startEngine()
+        guard let buffer = binocularsCatBuffer else { return }
+        playerNode.stop()
+        playerNode.scheduleBuffer(buffer, completionHandler: nil)
+        playerNode.play()
+    }
+
+    func playStretchCat() {
+        startEngine()
+        guard let buffer = stretchCatBuffer else { return }
+        playerNode.stop()
+        playerNode.scheduleBuffer(buffer, completionHandler: nil)
+        playerNode.play()
+    }
+
+    func playRollCat() {
+        startEngine()
+        guard let buffer = rollCatBuffer else { return }
+        playerNode.stop()
+        playerNode.scheduleBuffer(buffer, completionHandler: nil)
+        playerNode.play()
     }
 
     // MARK: - SFX Playback

@@ -222,6 +222,16 @@ class GameState {
     var lastRoundMatchBonus: Int = 0
     var lastRoundComboBonus: Int = 0
 
+    // MARK: - Floating Score Animation
+    /// Total points earned on last round complete (triggers floating "+X" text)
+    var floatingPointsAmount: Int = 0
+    /// Multiplier active when those points were earned (1 = none, 3 = golden)
+    var floatingPointsMultiplier: Int = 1
+    /// Toggled to trigger the floating points animation
+    var floatingPointsTrigger: Int = 0
+    /// Incremented on each round complete — used to trigger celebration cats
+    var completedRoundCount: Int = 0
+
     // MARK: - Difficulty Scaling
 
     /// Maximum target depth for the current tier (what colors can be targets)
@@ -340,7 +350,7 @@ class GameState {
     // MARK: - Tile Selection & Blending
 
     func selectTile(at pos: GridPosition) {
-        guard !isProcessing, !isGameOver, !showRoundComplete, !showSubTargetComplete else { return }
+        guard !isProcessing, !isGameOver, !showSubTargetComplete else { return }
         guard tile(at: pos) != nil else {
             selectedPosition = nil
             return
@@ -467,7 +477,7 @@ class GameState {
                     SoundManager.shared.playRoundComplete()
 
                     showSubTargetComplete = true
-                    try? await Task.sleep(for: .milliseconds(600))
+                    try? await Task.sleep(for: .milliseconds(350))
                     showSubTargetComplete = false
                     comboMessage = nil
 
@@ -480,7 +490,7 @@ class GameState {
                     advanceToNextTarget()
                     isProcessing = false
                 } else {
-                    // Final (or only) target — full round complete
+                    // Final (or only) target — full round complete (non-blocking)
                     // Record stats for the completed target
                     captureNewAchievements {
                         StatsManager.shared.recordRoundComplete(
@@ -502,24 +512,25 @@ class GameState {
                         comboMessage = ct
                     }
 
-                    showMilestone = isMilestone
-                    showRoundComplete = true
+                    // Trigger floating points animation (non-blocking)
+                    let totalEarned = lastRoundBlendPoints + lastRoundMatchBonus + lastRoundComboBonus
+                    floatingPointsAmount = totalEarned
+                    floatingPointsMultiplier = scoreMultiplier
+                    floatingPointsTrigger += 1
+                    completedRoundCount += 1
+
                     tunnelDepth += 1
-                    roundCompleteCanDismiss = false
 
-                    // Allow dismiss after a brief minimum display
-                    try? await Task.sleep(for: .milliseconds(200))
-                    roundCompleteCanDismiss = true
+                    // Brief pause for visual match feedback, then immediately continue
+                    try? await Task.sleep(for: .milliseconds(350))
 
-                    // Auto-dismiss after full duration if not tapped
-                    try? await Task.sleep(for: .milliseconds(isMilestone ? 1200 : 600))
-
-                    if showRoundComplete && !isGameOver {
-                        showRoundComplete = false
-                        showMilestone = false
-                        comboMessage = nil
-                        startNewRound()
+                    guard !isGameOver else {
+                        isProcessing = false
+                        return
                     }
+
+                    comboMessage = nil
+                    startNewRound()
                     isProcessing = false
                 }
             } else {
@@ -1036,6 +1047,8 @@ class GameState {
         // Timer system disabled — calls to startTimer()/stopTimer() are no-ops
         // Note: consecutiveDeaths NOT reset — persists across games for DDA
         roundCompleteCanDismiss = false
+        floatingPointsAmount = 0
+        floatingPointsMultiplier = 1
         tunnelDepth = 0
         discoveredColorIndices = [0, 16, 32]  // reset to primaries
         gameID += 1
