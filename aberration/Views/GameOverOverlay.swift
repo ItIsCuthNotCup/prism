@@ -51,6 +51,10 @@ struct GameOverOverlay: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
+                // Animated cat mascot
+                AnimatedCatView(fps: 8, height: 100)
+                    .padding(.bottom, 8)
+
                 // Header
                 VStack(spacing: 6) {
                     if isNewHighScore {

@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		CE5E891D2F7D987F0075DAFA /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = AA000001ADMOB000000000001 /* GoogleMobileAds */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		CE5E79D62F79FB1F0075DAFA /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -30,7 +34,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		AA000002INFOPLIST00000001 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		AA000002INFOPLIST00000001 /* Exceptions for "aberration" folder in "aberration" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -43,7 +47,7 @@
 		CE5E79C82F79FB1D0075DAFA /* aberration */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				AA000002INFOPLIST00000001 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+				AA000002INFOPLIST00000001 /* Exceptions for "aberration" folder in "aberration" target */,
 			);
 			path = aberration;
 			sourceTree = "<group>";
@@ -65,6 +69,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CE5E891D2F7D987F0075DAFA /* GoogleMobileAds in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -616,7 +621,6 @@
 			productName = GoogleMobileAds;
 		};
 /* End XCSwiftPackageProductDependency section */
-
 	};
 	rootObject = CE5E79BE2F79FB1D0075DAFA /* Project object */;
 }
