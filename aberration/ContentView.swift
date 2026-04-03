@@ -138,15 +138,55 @@ struct PrismGameView: View {
                           .animation(.spring(response: 0.4), value: target.wheelIndex)
                       }
 
+                      // Notification banner
+                      if let note = game.notificationText {
+                          Text(note)
+                              .font(.system(size: 12, weight: .medium, design: .serif))
+                              .foregroundStyle(Color(hex: 0x666666))
+                              .padding(.horizontal, 16)
+                              .padding(.vertical, 6)
+                              .background(
+                                  Capsule()
+                                      .fill(Color(hex: 0xF0F0F2))
+                                      .overlay(
+                                          Capsule()
+                                              .strokeBorder(Color(hex: 0xDDDDDD), lineWidth: 0.5)
+                                      )
+                              )
+                              .transition(.asymmetric(
+                                  insertion: .scale(scale: 0.8).combined(with: .opacity),
+                                  removal: .opacity
+                              ))
+                              .onAppear {
+                                  // Auto-dismiss after 3 seconds
+                                  DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                                      withAnimation(.easeOut(duration: 0.3)) {
+                                          game.notificationText = nil
+                                      }
+                                  }
+                              }
+                              .padding(.vertical, 4)
+                      }
+
                       // Thin separator
                       Rectangle()
                           .fill(Color(hex: 0xDDDDDD).opacity(0.5))
                           .frame(height: 0.5)
                           .padding(.horizontal, 12)
 
-                      // Grid
-                      GridView(game: game, cellSize: cellSize)
-                          .padding(.top, 4)
+                      // Grid with optional tutorial arrows
+                      ZStack {
+                          GridView(game: game, cellSize: cellSize)
+
+                          // Tutorial arrows on round 1
+                          if game.showTutorialArrows {
+                              tutorialArrowsOverlay(cellSize: cellSize, spacing: spacing)
+                                  .allowsHitTesting(false)
+                                  .transition(.opacity)
+                          }
+                      }
+                      .padding(.top, 4)
+                      .animation(.easeInOut(duration: 0.3), value: game.showTutorialArrows)
 
                       // Bottom buttons — all flat text, consistent style
                       HStack(spacing: 0) {
@@ -850,6 +890,46 @@ struct PrismGameView: View {
         }
     }
 
+    // MARK: - Tutorial Arrows Overlay
+
+    /// Draws downward-pointing arrows above each hinted tile on round 1.
+    /// Positions are calculated to match the LazyVGrid layout in GridView.
+    private func tutorialArrowsOverlay(cellSize: CGFloat, spacing: CGFloat) -> some View {
+        let gridInset: CGFloat = 4
+        let gridSize = GridPosition.gridSize
+        let totalWidth = CGFloat(gridSize) * cellSize + CGFloat(gridSize - 1) * spacing + gridInset * 2
+        let totalHeight = totalWidth  // square grid
+
+        return ZStack {
+            ForEach(Array(game.hintPositions), id: \.self) { pos in
+                let col = CGFloat(pos.col)
+                let row = CGFloat(pos.row)
+                // Cell center relative to the grid's top-left
+                let x = gridInset + col * (cellSize + spacing) + cellSize / 2
+                let y = gridInset + row * (cellSize + spacing) + cellSize / 2
+
+                VStack(spacing: 2) {
+                    Text("tap")
+                        .font(.system(size: 11, weight: .bold, design: .serif))
+                        .foregroundStyle(Color(hex: 0x3A3A4A))
+
+                    Image(systemName: "arrowtriangle.down.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Color(hex: 0x3A3A4A))
+                }
+                .shadow(color: .white, radius: 6)
+                .shadow(color: .white, radius: 3)
+                // Position above the tile center
+                .position(
+                    x: x,
+                    y: y - cellSize / 2 - 18
+                )
+                .modifier(GentleBounce())
+            }
+        }
+        .frame(width: totalWidth, height: totalHeight)
+    }
+
     private func glassCircle(color: Color) -> some View {
         Circle()
             .fill(
@@ -873,6 +953,24 @@ struct PrismGameView: View {
             )
             .frame(width: 38, height: 38)
             .shadow(color: color.opacity(0.3), radius: 8, y: 2)
+    }
+}
+
+// MARK: - Gentle Bounce Animation
+
+/// Repeating small vertical bounce for tutorial arrows.
+private struct GentleBounce: ViewModifier {
+    @State private var bouncing = false
+
+    func body(content: Content) -> some View {
+        content
+            .offset(y: bouncing ? -4 : 4)
+            .animation(
+                .easeInOut(duration: 0.6)
+                .repeatForever(autoreverses: true),
+                value: bouncing
+            )
+            .onAppear { bouncing = true }
     }
 }
 

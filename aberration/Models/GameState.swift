@@ -317,6 +317,10 @@ class GameState {
     var lastRoundBlendPoints: Int = 0
     var lastRoundMatchBonus: Int = 0
     var lastRoundComboBonus: Int = 0
+    /// Mercy system: if the player didn't get a perfect mix last round,
+    /// the next round drops to depth-1 (two primaries → secondary).
+    /// Active until round 50+, when full difficulty always applies.
+    var lastRoundWasPerfect: Bool = true
 
     // MARK: - Bonus System
 
@@ -392,6 +396,14 @@ class GameState {
     var floatingPointsTrigger: Int = 0
     /// The color of the target that was just matched (for coloring the floating text)
     var floatingPointsColor: Color = .gray
+
+    // MARK: - Tutorial / Notification System
+    /// Current notification text to show (nil = hidden)
+    var notificationText: String? = nil
+    /// Trigger to animate notification appearance
+    var notificationTrigger: Int = 0
+    /// Whether to show arrow pointers at hinted tiles (round 1 tutorial)
+    var showTutorialArrows: Bool = false
     /// Incremented on each round complete — used to trigger celebration cats
     var completedRoundCount: Int = 0
 
@@ -529,6 +541,12 @@ class GameState {
             showMergeHint = false
         }
 
+        // Dismiss tutorial on first tap
+        if showTutorialArrows {
+            showTutorialArrows = false
+            notificationText = nil
+        }
+
         if let sel = selectedPosition {
             if sel == pos {
                 selectedPosition = nil
@@ -659,6 +677,9 @@ class GameState {
                     SoundManager.shared.playRoundComplete()
                 }
 
+                // Track whether this round was perfect (1 blend) for mercy system
+                lastRoundWasPerfect = (blendsThisTarget == 1)
+
                 // Evaluate round bonuses (perfect blend, efficiency, streak, speed)
                 let roundBonuses = evaluateBonuses()
                 updateHighScore()  // re-check after bonuses
@@ -707,6 +728,14 @@ class GameState {
                 lastBlendPosition = nil
                 checkGameOver()
                 isProcessing = false
+
+                // 1/3 chance: remind player a combo still exists
+                if !isGameOver && Int.random(in: 0..<3) == 0 {
+                    if findBestBlendPair() != nil {
+                        notificationText = "A working combo is on the board"
+                        notificationTrigger += 1
+                    }
+                }
 
                 // Clear proximity hint after player has seen it (non-blocking)
                 if proximityHint != nil {
@@ -894,8 +923,16 @@ class GameState {
         let ddaHelp = consecutiveDeaths >= 2
         ddaActive = ddaHelp
 
-        // ── Target depth: breather rounds use simpler colors ──
-        let effectiveMaxDepth = isBreather ? min(maxTargetDepth, 1) : maxTargetDepth
+        // ── Target depth: mercy system + breather rounds use simpler colors ──
+        // If the player didn't get a perfect mix last round (and round < 50),
+        // drop to depth 1 (two primaries → secondary) so they stay engaged.
+        let mercyActive = !lastRoundWasPerfect && round < 50
+        let effectiveMaxDepth: Int
+        if isBreather || mercyActive {
+            effectiveMaxDepth = min(maxTargetDepth, 1)
+        } else {
+            effectiveMaxDepth = maxTargetDepth
+        }
 
         // Determine how many targets this round
         let targetCount = isBreather ? 1 : targetCountForRound
@@ -1009,9 +1046,13 @@ class GameState {
         if round == 1 {
             hintPositions = Set(placed)
             showMergeHint = true
+            showTutorialArrows = true
+            notificationText = "Tap both colors to create the target above"
+            notificationTrigger += 1
         } else {
             hintPositions = []
             showMergeHint = false
+            showTutorialArrows = false
         }
 
         return true
@@ -1224,6 +1265,9 @@ class GameState {
         firstBlendTime = nil
         roundsWithoutDying = 0  // using a life resets untouchable streak
 
+        // Lost a life — definitely not perfect, trigger mercy for next attempt
+        lastRoundWasPerfect = false
+
         // Restart the same round: decrement so startNewRound increments back,
         // and also decrement totalRoundsCompletedThisGame since startNewRound will
         // increment it (but this round wasn't actually completed)
@@ -1274,11 +1318,14 @@ class GameState {
         hintPositions = []
         showMergeHint = false
         hintActive = false
+        notificationText = nil
+        showTutorialArrows = false
         targetColor = nil
         pendingTargets = []
         totalTargetsThisRound = 1
         showSubTargetComplete = false
         blendsThisTarget = 0
+        lastRoundWasPerfect = true  // fresh game starts optimistic
         parForCurrentTarget = 0
         comboMessage = nil
         comboBonusTotal = 0

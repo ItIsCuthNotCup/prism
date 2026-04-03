@@ -2,11 +2,9 @@ import SwiftUI
 
 /// Score feedback animation on round complete.
 ///
-/// Phase 1: Bonus label slides in from above (if earned)
-/// Phase 2: Bonus collapses down, merging into the total
-/// Phase 3: Total pulses big, then fades out upward
-///
-/// The bonus text is black; the total is the target color.
+/// Both bonus and total score appear in the target color.
+/// They combine, then zoom upward toward the score counter,
+/// shrinking and fading as if absorbed into it.
 struct FloatingPointsView: View {
     let amount: Int
     let multiplier: Int
@@ -16,22 +14,23 @@ struct FloatingPointsView: View {
     let bonusTrigger: Int
 
     // Phase states
-    @State private var phase: AnimPhase = .hidden
-    @State private var bonusOffsetY: CGFloat = -30
+    @State private var bonusOffsetY: CGFloat = -20
     @State private var bonusOpacity: Double = 0
     @State private var bonusScale: CGFloat = 0.7
+
     @State private var totalScale: CGFloat = 0.5
     @State private var totalOpacity: Double = 0
     @State private var totalOffsetY: CGFloat = 10
-    @State private var mergedScale: CGFloat = 1.0
 
-    private enum AnimPhase {
-        case hidden, showingBonus, merging, showingTotal, fadeOut
-    }
+    // Merge + zoom-to-score states
+    @State private var mergedScale: CGFloat = 1.0
+    @State private var groupOffsetY: CGFloat = 0
+    @State private var groupScale: CGFloat = 1.0
+    @State private var groupOpacity: Double = 1.0
 
     var body: some View {
         VStack(spacing: 6) {
-            // Bonus line (slides in first, then collapses)
+            // Bonus line (slides in first, then collapses into total)
             if let bonus, bonus.points > 0 || bonus.isMultiplier {
                 HStack(spacing: 4) {
                     Image(systemName: bonus.type.sfIcon)
@@ -47,8 +46,9 @@ struct FloatingPointsView: View {
                             .font(.system(size: 15, weight: .black, design: .serif))
                     }
                 }
-                .foregroundStyle(Color(hex: 0x2A2A2A))
+                .foregroundStyle(color)
                 .shadow(color: .white, radius: 6)
+                .shadow(color: .white, radius: 3)
                 .offset(y: bonusOffsetY)
                 .opacity(bonusOpacity)
                 .scaleEffect(bonusScale)
@@ -71,6 +71,10 @@ struct FloatingPointsView: View {
             .opacity(totalOpacity)
             .offset(y: totalOffsetY)
         }
+        // Group transform: zoom toward score counter (upward + shrink + fade)
+        .offset(y: groupOffsetY)
+        .scaleEffect(groupScale)
+        .opacity(groupOpacity)
         .allowsHitTesting(false)
         .onChange(of: trigger) { _, newTrigger in
             guard newTrigger > 0 else { return }
@@ -82,7 +86,6 @@ struct FloatingPointsView: View {
         let hasBonus = bonus != nil && (bonus!.points > 0 || bonus!.isMultiplier)
 
         // Reset all state
-        phase = .hidden
         bonusOffsetY = -20
         bonusOpacity = 0
         bonusScale = 0.7
@@ -90,6 +93,9 @@ struct FloatingPointsView: View {
         totalOpacity = 0
         totalOffsetY = 10
         mergedScale = 1.0
+        groupOffsetY = 0
+        groupScale = 1.0
+        groupOpacity = 1.0
 
         if hasBonus {
             // Phase 1: Show bonus label (drops in from above)
@@ -121,34 +127,35 @@ struct FloatingPointsView: View {
                 }
             }
 
-            // Phase 4: Total settles back, then fades out
+            // Phase 4: Total settles back
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.95) {
                 withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
                     mergedScale = 1.0
                 }
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) {
-                withAnimation(.easeOut(duration: 0.4)) {
-                    totalOffsetY = -50
-                }
-                withAnimation(.easeIn(duration: 0.3).delay(0.1)) {
-                    totalOpacity = 0
+
+            // Phase 5: Zoom toward score counter — fly up, shrink, disappear
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                withAnimation(.easeIn(duration: 0.35)) {
+                    groupOffsetY = -120
+                    groupScale = 0.3
+                    groupOpacity = 0
                 }
             }
         } else {
-            // No bonus — simple pop in + fade out
+            // No bonus — simple pop in, then zoom to score
             withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                 totalOpacity = 1
                 totalScale = 1.0
                 totalOffsetY = 0
             }
 
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                withAnimation(.easeOut(duration: 0.5)) {
-                    totalOffsetY = -50
-                }
-                withAnimation(.easeIn(duration: 0.4).delay(0.1)) {
-                    totalOpacity = 0
+            // Hold briefly, then zoom toward score counter
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                withAnimation(.easeIn(duration: 0.35)) {
+                    groupOffsetY = -120
+                    groupScale = 0.3
+                    groupOpacity = 0
                 }
             }
         }
