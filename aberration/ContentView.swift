@@ -25,6 +25,8 @@ struct PrismGameView: View {
     @State private var roundsUntilCelebration: Int = Int.random(in: 1...6)
     /// Cycles through celebration types so they alternate (no long streaks of the same one).
     @State private var nextCelebrationIndex: Int = Int.random(in: 0..<CelebrationType.allCases.count)
+    /// Work item for auto-dismissing the bottom toast
+    @State private var toastDismissWork: DispatchWorkItem? = nil
 
     var body: some View {
         GeometryReader { geo in
@@ -110,7 +112,7 @@ struct PrismGameView: View {
                                   .foregroundStyle(Color(hex: 0x3A3A4A))
                                   .tracking(3)
 
-                              // Selection hint
+                              // Selection hint (formula area)
                               ZStack {
                                   if let sel = game.selectedColor {
                                       HStack(spacing: 5) {
@@ -121,51 +123,20 @@ struct PrismGameView: View {
                                               .font(.system(size: 11, weight: .medium))
                                               .foregroundStyle(Color(hex: 0xAAAAAA))
                                       }
+                                  } else if game.showMergeHint && game.tutorialCoachText == nil {
+                                      Text("Tap two colors to mix")
+                                          .font(.system(size: 11, weight: .medium))
+                                          .foregroundStyle(Color(hex: 0x999999))
+                                          .tracking(1)
                                   }
-
-                                  Text("Tap two colors to mix")
-                                      .font(.system(size: 11, weight: .medium))
-                                      .foregroundStyle(Color(hex: 0x999999))
-                                      .tracking(1)
-                                      .opacity(game.showMergeHint && game.selectedColor == nil ? 1 : 0)
                               }
                               .frame(height: 16)
-                              .animation(.easeInOut(duration: 0.15), value: game.selectedPosition)
+                              .animation(.easeInOut(duration: 0.2), value: game.selectedPosition)
                           }
                           .padding(.bottom, 6)
                           .id(target.wheelIndex)
                           .transition(.scale.combined(with: .opacity))
                           .animation(.spring(response: 0.4), value: target.wheelIndex)
-                      }
-
-                      // Notification banner
-                      if let note = game.notificationText {
-                          Text(note)
-                              .font(.system(size: 12, weight: .medium, design: .serif))
-                              .foregroundStyle(Color(hex: 0x666666))
-                              .padding(.horizontal, 16)
-                              .padding(.vertical, 6)
-                              .background(
-                                  Capsule()
-                                      .fill(Color(hex: 0xF0F0F2))
-                                      .overlay(
-                                          Capsule()
-                                              .strokeBorder(Color(hex: 0xDDDDDD), lineWidth: 0.5)
-                                      )
-                              )
-                              .transition(.asymmetric(
-                                  insertion: .scale(scale: 0.8).combined(with: .opacity),
-                                  removal: .opacity
-                              ))
-                              .onAppear {
-                                  // Auto-dismiss after 3 seconds
-                                  DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-                                      withAnimation(.easeOut(duration: 0.3)) {
-                                          game.notificationText = nil
-                                      }
-                                  }
-                              }
-                              .padding(.vertical, 4)
                       }
 
                       // Thin separator
@@ -174,13 +145,13 @@ struct PrismGameView: View {
                           .frame(height: 0.5)
                           .padding(.horizontal, 12)
 
-                      // Grid with optional tutorial arrows
+                      // Grid with optional tutorial tooltip
                       ZStack {
                           GridView(game: game, cellSize: cellSize)
 
-                          // Tutorial arrows on round 1
+                          // Tutorial tooltip on round 1 — clean, centered above hinted tiles
                           if game.showTutorialArrows {
-                              tutorialArrowsOverlay(cellSize: cellSize, spacing: spacing)
+                              tutorialTooltipOverlay(cellSize: cellSize, spacing: spacing)
                                   .allowsHitTesting(false)
                                   .transition(.opacity)
                           }
@@ -384,7 +355,26 @@ struct PrismGameView: View {
                     .transition(.opacity)
                 }
 
-                // Random celebration — pinned to bottom of screen
+                // ── Bottom toast: notifications, coaching, hints ──
+                // Pinned to very bottom of screen, behind celebration cats
+                VStack {
+                    Spacer()
+                    if let toastText = game.toastText {
+                        bottomToastView(text: toastText, accentColor: game.toastAccentColor)
+                            .padding(.horizontal, contentPadding + 4)
+                            .transition(
+                                .asymmetric(
+                                    insertion: .scale(scale: 0.85).combined(with: .opacity).combined(with: .offset(y: 20)),
+                                    removal: .scale(scale: 0.9).combined(with: .opacity)
+                                )
+                            )
+                    }
+                }
+                .padding(.bottom, 6)
+                .animation(.spring(response: 0.35, dampingFraction: 0.7), value: game.toastText)
+                .allowsHitTesting(false)
+
+                // Random celebration — pinned to bottom of screen (above toast)
                 if let celebration = activeCelebration {
                     celebrationView(for: celebration)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -423,6 +413,8 @@ struct PrismGameView: View {
         }
         .onChange(of: game.isGameOver) { _, isOver in
             if isOver {
+                // Dismiss any active toast
+                withAnimation(.easeOut(duration: 0.2)) { game.toastText = nil }
                 // Screen shake feedback on game over
                 withAnimation(.spring(response: 0.08, dampingFraction: 0.3)) {
                     gameOverShake = 8
@@ -437,6 +429,19 @@ struct PrismGameView: View {
                         gameOverShake = 0
                     }
                 }
+            }
+        }
+        .onChange(of: game.toastText) { _, newText in
+            // Auto-dismiss toast after 3 seconds
+            toastDismissWork?.cancel()
+            if newText != nil {
+                let work = DispatchWorkItem {
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        game.toastText = nil
+                    }
+                }
+                toastDismissWork = work
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0, execute: work)
             }
         }
         .sheet(isPresented: $showSettings) {
@@ -890,44 +895,99 @@ struct PrismGameView: View {
         }
     }
 
-    // MARK: - Tutorial Arrows Overlay
+    // MARK: - Tutorial Tooltip Overlay
 
-    /// Draws downward-pointing arrows above each hinted tile on round 1.
-    /// Positions are calculated to match the LazyVGrid layout in GridView.
-    private func tutorialArrowsOverlay(cellSize: CGFloat, spacing: CGFloat) -> some View {
+    /// A single clean tooltip centered above the hinted tiles on round 1.
+    /// Uses a pill shape with a subtle downward arrow, colored in the target color.
+    private func tutorialTooltipOverlay(cellSize: CGFloat, spacing: CGFloat) -> some View {
         let gridInset: CGFloat = 4
         let gridSize = GridPosition.gridSize
         let totalWidth = CGFloat(gridSize) * cellSize + CGFloat(gridSize - 1) * spacing + gridInset * 2
         let totalHeight = totalWidth  // square grid
 
+        // Find center point between the two hinted tiles
+        let positions = Array(game.hintPositions)
+        let centerX: CGFloat
+        let topY: CGFloat
+        if positions.count >= 2 {
+            let xs = positions.map { gridInset + CGFloat($0.col) * (cellSize + spacing) + cellSize / 2 }
+            let ys = positions.map { gridInset + CGFloat($0.row) * (cellSize + spacing) + cellSize / 2 }
+            centerX = xs.reduce(0, +) / CGFloat(xs.count)
+            topY = ys.min()! - cellSize / 2
+        } else if let pos = positions.first {
+            centerX = gridInset + CGFloat(pos.col) * (cellSize + spacing) + cellSize / 2
+            topY = gridInset + CGFloat(pos.row) * (cellSize + spacing)
+        } else {
+            centerX = totalWidth / 2
+            topY = totalHeight / 2
+        }
+
         return ZStack {
-            ForEach(Array(game.hintPositions), id: \.self) { pos in
-                let col = CGFloat(pos.col)
-                let row = CGFloat(pos.row)
-                // Cell center relative to the grid's top-left
-                let x = gridInset + col * (cellSize + spacing) + cellSize / 2
-                let y = gridInset + row * (cellSize + spacing) + cellSize / 2
+            VStack(spacing: 0) {
+                Text("Tap both to mix")
+                    .font(.system(size: 13, weight: .semibold, design: .serif))
+                    .foregroundStyle(.white.opacity(0.95))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule()
+                            .fill(Color(hex: 0x2A2A2A).opacity(0.75))
+                            .overlay(
+                                Capsule()
+                                    .fill(.ultraThinMaterial.opacity(0.3))
+                            )
+                            .overlay(
+                                Capsule()
+                                    .strokeBorder(.white.opacity(0.15), lineWidth: 0.5)
+                            )
+                            .shadow(color: .black.opacity(0.2), radius: 8, y: 2)
+                    )
 
-                VStack(spacing: 2) {
-                    Text("tap")
-                        .font(.system(size: 11, weight: .bold, design: .serif))
-                        .foregroundStyle(Color(hex: 0x3A3A4A))
-
-                    Image(systemName: "arrowtriangle.down.fill")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Color(hex: 0x3A3A4A))
-                }
-                .shadow(color: .white, radius: 6)
-                .shadow(color: .white, radius: 3)
-                // Position above the tile center
-                .position(
-                    x: x,
-                    y: y - cellSize / 2 - 18
-                )
-                .modifier(GentleBounce())
+                // Small triangle pointing down
+                Image(systemName: "arrowtriangle.down.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color(hex: 0x2A2A2A).opacity(0.75))
+                    .offset(y: -2)
             }
+            .position(x: centerX, y: topY - 16)
+            .modifier(GentleBounce())
         }
         .frame(width: totalWidth, height: totalHeight)
+    }
+
+    // MARK: - Bottom Toast
+
+    /// iOS-style toast that slides up from the bottom of the screen.
+    /// Glass card style matching the main card, with subtle accent color.
+    private func bottomToastView(text: String, accentColor: Color?) -> some View {
+        return HStack(spacing: 0) {
+            Text(text)
+                .font(.system(size: 14, weight: .medium, design: .serif))
+                .foregroundStyle(Color(hex: 0x3A3A4A))
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.white.opacity(0.85))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(.ultraThinMaterial)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [.white.opacity(0.8), .white.opacity(0.2)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            ),
+                            lineWidth: 0.5
+                        )
+                )
+                .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
+        )
     }
 
     private func glassCircle(color: Color) -> some View {

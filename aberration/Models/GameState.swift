@@ -404,8 +404,23 @@ class GameState {
     var notificationTrigger: Int = 0
     /// Whether to show arrow pointers at hinted tiles (round 1 tutorial)
     var showTutorialArrows: Bool = false
+    /// Whether the tutorial glow should show on hinted tiles (rounds 1-3)
+    var showTutorialGlow: Bool = false
+    /// Tutorial coaching text (also shown in bottom toast for rounds 1-3)
+    var tutorialCoachText: String? = nil
     /// Incremented on each round complete — used to trigger celebration cats
     var completedRoundCount: Int = 0
+
+    // MARK: - Bottom Toast System
+    /// Text shown in the bottom toast (nil = hidden). Auto-dismisses after 3s.
+    var toastText: String? = nil
+    /// Accent color for the toast dot (matches target color when relevant)
+    var toastAccentColor: Color? = nil
+    /// Show a toast message. Auto-dismiss is handled by the view layer via onChange.
+    func showToast(_ text: String, accent: Color? = nil) {
+        toastText = text
+        toastAccentColor = accent
+    }
 
     // MARK: - Difficulty Scaling
 
@@ -541,10 +556,12 @@ class GameState {
             showMergeHint = false
         }
 
-        // Dismiss tutorial on first tap
+        // Dismiss tutorial visuals on first tap (keep coaching text until round ends)
         if showTutorialArrows {
             showTutorialArrows = false
-            notificationText = nil
+        }
+        if showTutorialGlow {
+            showTutorialGlow = false
         }
 
         if let sel = selectedPosition {
@@ -697,8 +714,15 @@ class GameState {
 
                 tunnelDepth += 1
 
-                // Brief pause for visual match feedback, then immediately continue
-                try? await Task.sleep(for: .milliseconds(350))
+                // Tutorial celebration: extra pause + message on first round
+                if completedRound == 1 {
+                    tutorialCoachText = nil
+                    showToast("That's it! Red + Yellow = Orange")
+                    try? await Task.sleep(for: .milliseconds(800))
+                } else {
+                    // Brief pause for visual match feedback
+                    try? await Task.sleep(for: .milliseconds(350))
+                }
 
                 guard !isGameOver else {
                     isProcessing = false
@@ -732,8 +756,7 @@ class GameState {
                 // 1/3 chance: remind player a combo still exists
                 if !isGameOver && Int.random(in: 0..<3) == 0 {
                     if findBestBlendPair() != nil {
-                        notificationText = "A working combo is on the board"
-                        notificationTrigger += 1
+                        showToast("A working combo is on the board")
                     }
                 }
 
@@ -885,6 +908,9 @@ class GameState {
     // MARK: - Round Management
 
     func startNewRound() {
+        // Dismiss any active toast from the previous round
+        toastText = nil
+
         // Track completed rounds (skip on first call from init)
         if round > 0 {
             totalRoundsCompletedThisGame += 1
@@ -940,15 +966,21 @@ class GameState {
 
         // Generate all targets for this round
         var targets: [PrismColor] = []
-        let boardColors = Set(grid.flatMap { $0 }.compactMap { $0 })
-        for _ in 0..<targetCount {
-            let candidates = PrismColor.targets(maxDepth: effectiveMaxDepth)
-            let alreadyChosen = Set(targets)
-            let preferred = candidates.filter { !boardColors.contains($0) && !alreadyChosen.contains($0) }
-            if let pick = (preferred.isEmpty ? candidates.filter { !alreadyChosen.contains($0) } : preferred).randomElement() {
-                targets.append(pick)
-            } else if let fallback = candidates.randomElement() {
-                targets.append(fallback)
+
+        // Round 1 is always Orange (Red + Yellow) — consistent, intuitive first puzzle
+        if round == 1 {
+            targets = [PrismColor.byIndex(8)]  // Orange
+        } else {
+            let boardColors = Set(grid.flatMap { $0 }.compactMap { $0 })
+            for _ in 0..<targetCount {
+                let candidates = PrismColor.targets(maxDepth: effectiveMaxDepth)
+                let alreadyChosen = Set(targets)
+                let preferred = candidates.filter { !boardColors.contains($0) && !alreadyChosen.contains($0) }
+                if let pick = (preferred.isEmpty ? candidates.filter { !alreadyChosen.contains($0) } : preferred).randomElement() {
+                    targets.append(pick)
+                } else if let fallback = candidates.randomElement() {
+                    targets.append(fallback)
+                }
             }
         }
 
@@ -1043,16 +1075,31 @@ class GameState {
 
         let placed = spawnConnectedCluster(tiles: ingredients.shuffled())
 
-        if round == 1 {
+        if round <= 3 {
+            // Tutorial: glow the ingredient tiles for rounds 1-3
             hintPositions = Set(placed)
             showMergeHint = true
-            showTutorialArrows = true
-            notificationText = "Tap both colors to create the target above"
-            notificationTrigger += 1
+            showTutorialGlow = true
+
+            if round == 1 {
+                showTutorialArrows = true
+                tutorialCoachText = "Tap both to mix"
+                // No toast — the tooltip above the tiles handles round 1
+            } else if round == 2 {
+                showTutorialArrows = false
+                tutorialCoachText = "Nice! Mix this one"
+                showToast("Nice! Mix this one")
+            } else {
+                showTutorialArrows = false
+                tutorialCoachText = "Miss? The result stays on the grid"
+                showToast("Miss? The result stays on the grid")
+            }
         } else {
             hintPositions = []
             showMergeHint = false
+            showTutorialGlow = false
             showTutorialArrows = false
+            tutorialCoachText = nil
         }
 
         return true
@@ -1320,6 +1367,10 @@ class GameState {
         hintActive = false
         notificationText = nil
         showTutorialArrows = false
+        showTutorialGlow = false
+        tutorialCoachText = nil
+        toastText = nil
+        toastAccentColor = nil
         targetColor = nil
         pendingTargets = []
         totalTargetsThisRound = 1
