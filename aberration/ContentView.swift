@@ -57,200 +57,182 @@ struct PrismGameView: View {
                     }
                     .padding(.bottom, 0)
 
-                  // ── Top container with cat peeking over ──
+                  // ── Unified card: cat + stats + target + grid + buttons ──
                   ZStack(alignment: .top) {
-                    // 1) Cat behind the card — head peeks above
+                    // Cat behind the card — head peeks above
                     Image("cat_0095")
                         .interpolation(.none)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(height: 56)
 
-                    // 2) Card drawn on top — covers cat's body
-                    VStack(spacing: 4) {
-                      // Stats bar — SCORE is the hero
+                    VStack(spacing: 0) {
+                      // Stats bar — ROUND left, SCORE center, LIVES right
                       HStack(alignment: .center, spacing: 0) {
                           secondaryStat(label: "ROUND", value: "\(game.round)")
-                          Spacer()
-                          livesDisplay
-                          Spacer()
+                              .frame(maxWidth: .infinity)
                           heroStat(label: "SCORE", value: "\(game.score)")
+                              .frame(maxWidth: .infinity)
+                          livesDisplay
+                              .frame(maxWidth: .infinity)
                       }
-                      .padding(.horizontal, 20)
+                      .padding(.horizontal, 12)
                       .padding(.vertical, 6)
 
-                    // Target color + progress + blend preview
-                    if let target = game.targetColor {
-                        VStack(spacing: 8) {
-                            RoundedRectangle(cornerRadius: 14)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [target.highlightColor, target.color],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .overlay(
-                                    LinearGradient(
-                                        colors: [.white.opacity(0.4), .white.opacity(0.05), .clear],
-                                        startPoint: .topLeading,
-                                        endPoint: .center
-                                    )
-                                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 14)
-                                        .strokeBorder(.white.opacity(0.5), lineWidth: 0.5)
-                                )
-                                .frame(width: cellSize * 1.2, height: cellSize * 1.2)
-                                .shadow(color: target.color.opacity(0.3), radius: 16, y: 4)
+                      // Target color swatch + name
+                      if let target = game.targetColor {
+                          VStack(spacing: 4) {
+                              RoundedRectangle(cornerRadius: 12)
+                                  .fill(
+                                      LinearGradient(
+                                          colors: [target.highlightColor, target.color],
+                                          startPoint: .topLeading,
+                                          endPoint: .bottomTrailing
+                                      )
+                                  )
+                                  .overlay(
+                                      LinearGradient(
+                                          colors: [.white.opacity(0.4), .white.opacity(0.05), .clear],
+                                          startPoint: .topLeading,
+                                          endPoint: .center
+                                      )
+                                      .clipShape(RoundedRectangle(cornerRadius: 12))
+                                  )
+                                  .overlay(
+                                      RoundedRectangle(cornerRadius: 12)
+                                          .strokeBorder(.white.opacity(0.5), lineWidth: 0.5)
+                                  )
+                                  .frame(width: cellSize * 1.1, height: cellSize * 1.1)
+                                  .shadow(color: target.color.opacity(0.25), radius: 10, y: 3)
 
-                            Text(target.name.uppercased())
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(Color(hex: 0x3A3A4A))
-                                .tracking(3)
+                              Text(target.name.uppercased())
+                                  .font(.system(size: 13, weight: .bold))
+                                  .foregroundStyle(Color(hex: 0x3A3A4A))
+                                  .tracking(3)
 
-                            // Blend preview / hint (inside the card)
-                            ZStack {
-                                if let sel = game.selectedColor {
-                                    HStack(spacing: 5) {
-                                        RoundedRectangle(cornerRadius: 3)
-                                            .fill(sel.color)
-                                            .frame(width: 12, height: 12)
-                                        Text("\(sel.name) + ?")
-                                            .font(.system(size: 12, weight: .medium))
-                                            .foregroundStyle(Color(hex: 0xAAAAAA))
-                                    }
-                                }
+                              // Selection hint
+                              ZStack {
+                                  if let sel = game.selectedColor {
+                                      HStack(spacing: 5) {
+                                          RoundedRectangle(cornerRadius: 3)
+                                              .fill(sel.color)
+                                              .frame(width: 10, height: 10)
+                                          Text("\(sel.name) + ?")
+                                              .font(.system(size: 11, weight: .medium))
+                                              .foregroundStyle(Color(hex: 0xAAAAAA))
+                                      }
+                                  }
 
-                                Text("Tap two colors to mix")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundStyle(Color(hex: 0x999999))
-                                    .tracking(1)
-                                    .opacity(game.showMergeHint && game.selectedColor == nil ? 1 : 0)
-                            }
-                            .frame(height: 20)
-                            .animation(.easeInOut(duration: 0.15), value: game.selectedPosition)
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 4)
-                        .id(target.wheelIndex)
-                        .transition(.scale.combined(with: .opacity))
-                        .animation(.spring(response: 0.4), value: target.wheelIndex)
-                    }
-                    // Timer removed — zen mode
+                                  Text("Tap two colors to mix")
+                                      .font(.system(size: 11, weight: .medium))
+                                      .foregroundStyle(Color(hex: 0x999999))
+                                      .tracking(1)
+                                      .opacity(game.showMergeHint && game.selectedColor == nil ? 1 : 0)
+                              }
+                              .frame(height: 16)
+                              .animation(.easeInOut(duration: 0.15), value: game.selectedPosition)
+                          }
+                          .padding(.bottom, 6)
+                          .id(target.wheelIndex)
+                          .transition(.scale.combined(with: .opacity))
+                          .animation(.spring(response: 0.4), value: target.wheelIndex)
+                      }
+
+                      // Thin separator
+                      Rectangle()
+                          .fill(Color(hex: 0xDDDDDD).opacity(0.5))
+                          .frame(height: 0.5)
+                          .padding(.horizontal, 12)
+
+                      // Grid
+                      GridView(game: game, cellSize: cellSize)
+                          .padding(.top, 4)
+
+                      // Bottom buttons — all flat text, consistent style
+                      HStack(spacing: 0) {
+                          // Undo — left
+                          Button {
+                              withAnimation(.easeInOut(duration: 0.2)) {
+                                  game.undoLastBlend()
+                              }
+                          } label: {
+                              HStack(spacing: 4) {
+                                  Image(systemName: "arrow.uturn.backward")
+                                      .font(.system(size: 12, weight: .semibold))
+                                  Text("Undo")
+                                      .font(.system(size: 13, weight: .semibold))
+                              }
+                              .foregroundStyle(Color(hex: 0x3A3A4A))
+                              .frame(maxWidth: .infinity)
+                              .padding(.vertical, 10)
+                          }
+                          .opacity(game.canUndo ? 1 : 0.2)
+                          .allowsHitTesting(game.canUndo)
+
+                          // New Game — center
+                          Button {
+                              if game.round > 1 && !game.isGameOver {
+                                  showNewGameConfirm = true
+                              } else {
+                                  withAnimation(.easeInOut(duration: 0.3)) {
+                                      game.newGame()
+                                  }
+                              }
+                          } label: {
+                              Text("New Game")
+                                  .font(.system(size: 13, weight: .semibold))
+                                  .foregroundStyle(Color(hex: 0x3A3A4A))
+                                  .frame(maxWidth: .infinity)
+                                  .padding(.vertical, 10)
+                          }
+
+                          // Hint — right
+                          Button {
+                              withAnimation(.easeInOut(duration: 0.2)) {
+                                  _ = game.useHintToken()
+                              }
+                          } label: {
+                              HStack(spacing: 4) {
+                                  Image(systemName: "lightbulb.fill")
+                                      .font(.system(size: 12, weight: .semibold))
+                                  Text("Hint")
+                                      .font(.system(size: 13, weight: .semibold))
+                                  if game.hintTokens > 0 {
+                                      Text("\(game.hintTokens)")
+                                          .font(.system(size: 11, weight: .bold))
+                                          .foregroundStyle(.white)
+                                          .frame(width: 18, height: 18)
+                                          .background(Circle().fill(Color(hex: 0x5A9BC7)))
+                                  }
+                              }
+                              .foregroundStyle(game.hintTokens > 0 ? Color(hex: 0x3A3A4A) : Color(hex: 0xBBBBBB))
+                              .frame(maxWidth: .infinity)
+                              .padding(.vertical, 10)
+                          }
+                          .opacity(game.hintTokens > 0 && !game.hintActive ? 1 : 0.2)
+                          .allowsHitTesting(game.hintTokens > 0 && !game.hintActive)
+                      }
+                      .padding(.horizontal, 8)
+                      .padding(.bottom, 4)
+                      .opacity(game.isGameOver ? 0 : 1)
+                      .animation(.easeInOut(duration: 0.2), value: game.canUndo)
+
                     } // end card VStack
                     .padding(.horizontal, 4)
-                    .padding(.vertical, 8)
                     .padding(.top, 40)   // push card down so cat face is visible
+                    .padding(.bottom, 4)
                     .background(
                         glassCard(cornerRadius: 20)
-                            .padding(.top, 40) // glass also starts 40pts down
+                            .padding(.top, 40)
                     )
-                  } // end ZStack (cat + top card)
-
-                    Spacer(minLength: 8)
-
-                  // ── Bottom container: grid + buttons ──
-                  VStack(spacing: 0) {
-                    // Grid
-                    GridView(game: game, cellSize: cellSize)
-
-                    // Bottom buttons (hidden during overlays)
-                    ZStack {
-                        // Undo — left, Hint — right
-                        HStack {
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    game.undoLastBlend()
-                                }
-                            } label: {
-                                HStack(spacing: 5) {
-                                    Image(systemName: "arrow.uturn.backward")
-                                    Text("Undo")
-                                }
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(Color(hex: 0x2A2A2A))
-                                .padding(.horizontal, 18)
-                                .padding(.vertical, 10)
-                                .background(
-                                    Capsule()
-                                        .fill(.white.opacity(0.8))
-                                        .overlay(
-                                            Capsule()
-                                                .strokeBorder(Color(hex: 0x2A2A2A).opacity(0.2), lineWidth: 1)
-                                        )
-                                        .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
-                                )
-                            }
-                            .opacity(game.canUndo ? 1 : 0.25)
-                            .allowsHitTesting(game.canUndo)
-
-                            Spacer()
-
-                            // Hint button — right side
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    _ = game.useHintToken()
-                                }
-                            } label: {
-                                HStack(spacing: 5) {
-                                    Image(systemName: "book.fill")
-                                    Text("Hint")
-                                    if game.hintTokens > 0 {
-                                        Text("(\(game.hintTokens))")
-                                            .font(.system(size: 11, weight: .bold))
-                                    }
-                                }
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(game.hintTokens > 0 ? Color(hex: 0x5A9BC7) : Color(hex: 0xBBBBBB))
-                                .padding(.horizontal, 18)
-                                .padding(.vertical, 10)
-                                .background(
-                                    Capsule()
-                                        .fill(.white.opacity(0.8))
-                                        .overlay(
-                                            Capsule()
-                                                .strokeBorder((game.hintTokens > 0 ? Color(hex: 0x5A9BC7) : Color(hex: 0xBBBBBB)).opacity(0.2), lineWidth: 1)
-                                        )
-                                        .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
-                                )
-                            }
-                            .opacity(game.hintTokens > 0 && !game.hintActive ? 1 : 0.4)
-                            .allowsHitTesting(game.hintTokens > 0 && !game.hintActive)
-                        }
-
-                        // New Game — always centered, bold black pill
-                        Button {
-                            if game.round > 1 && !game.isGameOver {
-                                showNewGameConfirm = true
-                            } else {
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    game.newGame()
-                                }
-                            }
-                        } label: {
-                            Text("New Game")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(Color(hex: 0x3A3A4A))
-                                .padding(.horizontal, 22)
-                                .padding(.vertical, 11)
-                        }
-                    }
-                    .padding(.top, 4)
-                    .padding(.bottom, 6)
-                    .opacity(game.isGameOver ? 0 : 1)
-                    .animation(.easeInOut(duration: 0.2), value: game.canUndo)
-                  } // end bottom container
-                  .padding(.horizontal, 4)
-                  .padding(.vertical, 8)
-                  .background(glassCard(cornerRadius: 20))
+                  } // end ZStack (unified card)
                   .overlay(
                     ChromaticAberrationBorder(
                         cornerRadius: 20,
                         phase: aberrationPhase,
                         intensity: game.activeMultiplierSource == .none ? 0 : (glowPulse ? 1.0 : 0.3)
                     )
+                    .padding(.top, 40) // match the card offset
                     .allowsHitTesting(false)
                   )
                   .onChange(of: game.activeMultiplierSource) { _, newSource in
@@ -258,7 +240,6 @@ struct PrismGameView: View {
                           withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
                               glowPulse = true
                           }
-                          // Start continuous phase rotation
                           withAnimation(.linear(duration: 4.0).repeatForever(autoreverses: false)) {
                               aberrationPhase = 1.0
                           }
@@ -271,23 +252,19 @@ struct PrismGameView: View {
                   }
                 }
                 .padding(.horizontal, contentPadding)
-                .padding(.top, 8)
+                .padding(.top, 4)
                 .frame(maxWidth: maxContentWidth)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .offset(x: gameOverShake)
 
-                // Floating points animation (non-blocking)
+                // Score feedback: bonus label → merges into total → fades
                 FloatingPointsView(
                     amount: game.floatingPointsAmount,
                     multiplier: game.floatingPointsMultiplier,
                     trigger: game.floatingPointsTrigger,
-                    color: game.floatingPointsColor
-                )
-
-                // Bonus label (appears below the floating points, per-type animation)
-                BonusLabelView(
+                    color: game.floatingPointsColor,
                     bonus: game.lastEarnedBonus,
-                    trigger: game.bonusTrigger
+                    bonusTrigger: game.bonusTrigger
                 )
 
                 // Game over overlay
@@ -367,9 +344,11 @@ struct PrismGameView: View {
                     .transition(.opacity)
                 }
 
-                // Random celebration (pops up from bottom on round complete)
+                // Random celebration — pinned to bottom of screen
                 if let celebration = activeCelebration {
                     celebrationView(for: celebration)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .ignoresSafeArea()
                         .transition(.identity)
                 }
 
@@ -481,13 +460,13 @@ struct PrismGameView: View {
     // MARK: - Subviews
 
     private func heroStat(label: String, value: String) -> some View {
-        VStack(spacing: 2) {
+        VStack(spacing: 1) {
             Text(label)
-                .font(.system(size: 9, weight: .bold, design: .serif))
-                .foregroundStyle(Color(hex: 0x999999))
+                .font(.system(size: 10, weight: .bold, design: .serif))
+                .foregroundStyle(Color(hex: 0x888888))
                 .tracking(2)
             Text(value)
-                .font(.system(size: 30, weight: .black, design: .serif))
+                .font(.system(size: 26, weight: .black, design: .serif))
                 .foregroundStyle(Color(hex: 0x2A2A3A))
                 .contentTransition(.numericText())
                 .animation(.spring(response: 0.3), value: value)
@@ -495,14 +474,14 @@ struct PrismGameView: View {
     }
 
     private func secondaryStat(label: String, value: String, accent: Bool = false) -> some View {
-        VStack(spacing: 2) {
+        VStack(spacing: 1) {
             Text(label)
-                .font(.system(size: 9, weight: .medium, design: .serif))
-                .foregroundStyle(Color(hex: 0xBBBBBB))
+                .font(.system(size: 10, weight: .semibold, design: .serif))
+                .foregroundStyle(Color(hex: 0x888888))
                 .tracking(1.5)
             Text(value)
                 .font(.system(size: 16, weight: .semibold, design: .serif))
-                .foregroundStyle(accent ? Color(hex: 0x8D99AE) : Color(hex: 0x6A6A7A))
+                .foregroundStyle(accent ? Color(hex: 0x8D99AE) : Color(hex: 0x5A5A6A))
                 .contentTransition(.numericText())
                 .animation(.spring(response: 0.3), value: value)
         }
@@ -511,10 +490,10 @@ struct PrismGameView: View {
     // MARK: - Lives Display
 
     private var livesDisplay: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: 1) {
             Text("LIVES")
-                .font(.system(size: 9, weight: .medium, design: .serif))
-                .foregroundStyle(Color(hex: 0xBBBBBB))
+                .font(.system(size: 10, weight: .semibold, design: .serif))
+                .foregroundStyle(Color(hex: 0x888888))
                 .tracking(1.5)
             HStack(spacing: 4) {
                 let maxSlots = max(3, game.lives)

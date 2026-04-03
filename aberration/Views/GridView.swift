@@ -122,19 +122,18 @@ struct GridView: View {
                 }
             }
         } else {
-            // Empty cell — visible indent for older players
+            // Empty cell — subtle but present
             RoundedRectangle(cornerRadius: 10)
-                .fill(Color(hex: 0xE8E8ED).opacity(0.75))
+                .fill(Color(hex: 0xE4E4EA))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(Color(hex: 0xD8D8DE).opacity(0.6), lineWidth: 0.75)
+                        .strokeBorder(Color(hex: 0xD0D0D8).opacity(0.7), lineWidth: 0.75)
                 )
                 .overlay(
-                    // Inner shadow effect
                     RoundedRectangle(cornerRadius: 10)
                         .fill(
                             LinearGradient(
-                                colors: [.black.opacity(0.04), .clear, .white.opacity(0.08)],
+                                colors: [.black.opacity(0.03), .clear, .white.opacity(0.06)],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
