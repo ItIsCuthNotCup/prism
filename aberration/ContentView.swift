@@ -14,6 +14,9 @@ struct PrismGameView: View {
     @State private var showAchievements = false
     @State private var showNewGameConfirm = false
     @State private var showHowToPlay = false
+    @State private var showDailyPuzzle = false
+    @State private var showShareSheet = false
+    @State private var shareImage: UIImage? = nil
     @State private var showRewardOffer = false
     @State private var showRewardChest = false
     @State private var pendingReward: GameState.RewardType? = nil
@@ -46,16 +49,16 @@ struct PrismGameView: View {
                 TunnelBackground(depth: game.tunnelDepth, pulseID: game.tunnelDepth, tapPulseID: game.tapPulseID, gameID: game.gameID, frenzy: game.isBackgroundFrenzy, discoveredColorIndices: game.discoveredColorIndices)
 
                 VStack(spacing: 0) {
-                    // Settings gear — top right
+                    // Settings gear — top left
                     HStack {
-                        Spacer()
                         Button {
                             showSettings.toggle()
                         } label: {
                             Image(systemName: "gearshape")
-                                .font(.system(size: 17, weight: .medium, design: .serif))
+                                .font(.system(size: 17, weight: .medium))
                                 .foregroundStyle(Color(hex: 0x555555))
                         }
+                        Spacer()
                     }
                     .padding(.bottom, 0)
 
@@ -69,13 +72,13 @@ struct PrismGameView: View {
                         .frame(height: 56)
 
                     VStack(spacing: 0) {
-                      // Stats bar — ROUND left, SCORE center, LIVES right
+                      // Stats bar — ROUND left, SCORE center, LIVES+HINT right
                       HStack(alignment: .center, spacing: 0) {
                           secondaryStat(label: "ROUND", value: "\(game.round)")
                               .frame(maxWidth: .infinity)
                           heroStat(label: "SCORE", value: "\(game.score)")
                               .frame(maxWidth: .infinity)
-                          livesDisplay
+                          livesAndHintDisplay
                               .frame(maxWidth: .infinity)
                       }
                       .padding(.horizontal, 12)
@@ -159,74 +162,7 @@ struct PrismGameView: View {
                       .padding(.top, 4)
                       .animation(.easeInOut(duration: 0.3), value: game.showTutorialArrows)
 
-                      // Bottom buttons — all flat text, consistent style
-                      HStack(spacing: 0) {
-                          // Undo — left
-                          Button {
-                              withAnimation(.easeInOut(duration: 0.2)) {
-                                  game.undoLastBlend()
-                              }
-                          } label: {
-                              HStack(spacing: 4) {
-                                  Image(systemName: "arrow.uturn.backward")
-                                      .font(.system(size: 12, weight: .semibold))
-                                  Text("Undo")
-                                      .font(.system(size: 13, weight: .semibold))
-                              }
-                              .foregroundStyle(Color(hex: 0x3A3A4A))
-                              .frame(maxWidth: .infinity)
-                              .padding(.vertical, 10)
-                          }
-                          .opacity(game.canUndo ? 1 : 0.2)
-                          .allowsHitTesting(game.canUndo)
-
-                          // New Game — center
-                          Button {
-                              if game.round > 1 && !game.isGameOver {
-                                  showNewGameConfirm = true
-                              } else {
-                                  withAnimation(.easeInOut(duration: 0.3)) {
-                                      game.newGame()
-                                  }
-                              }
-                          } label: {
-                              Text("New Game")
-                                  .font(.system(size: 13, weight: .semibold))
-                                  .foregroundStyle(Color(hex: 0x3A3A4A))
-                                  .frame(maxWidth: .infinity)
-                                  .padding(.vertical, 10)
-                          }
-
-                          // Hint — right
-                          Button {
-                              withAnimation(.easeInOut(duration: 0.2)) {
-                                  _ = game.useHintToken()
-                              }
-                          } label: {
-                              HStack(spacing: 4) {
-                                  Image(systemName: "lightbulb.fill")
-                                      .font(.system(size: 12, weight: .semibold))
-                                  Text("Hint")
-                                      .font(.system(size: 13, weight: .semibold))
-                                  if game.hintTokens > 0 {
-                                      Text("\(game.hintTokens)")
-                                          .font(.system(size: 11, weight: .bold))
-                                          .foregroundStyle(.white)
-                                          .frame(width: 18, height: 18)
-                                          .background(Circle().fill(Color(hex: 0x5A9BC7)))
-                                  }
-                              }
-                              .foregroundStyle(game.hintTokens > 0 ? Color(hex: 0x3A3A4A) : Color(hex: 0xBBBBBB))
-                              .frame(maxWidth: .infinity)
-                              .padding(.vertical, 10)
-                          }
-                          .opacity(game.hintTokens > 0 && !game.hintActive ? 1 : 0.2)
-                          .allowsHitTesting(game.hintTokens > 0 && !game.hintActive)
-                      }
-                      .padding(.horizontal, 8)
-                      .padding(.bottom, 4)
-                      .opacity(game.isGameOver ? 0 : 1)
-                      .animation(.easeInOut(duration: 0.2), value: game.canUndo)
+                      // (Bottom buttons removed — moved to bottom nav bar)
 
                     } // end card VStack
                     .padding(.horizontal, 4)
@@ -355,24 +291,31 @@ struct PrismGameView: View {
                     .transition(.opacity)
                 }
 
-                // ── Bottom toast: notifications, coaching, hints ──
-                // Pinned to very bottom of screen, behind celebration cats
+                // ── Top toast: notifications, coaching, hints ──
+                // Slides down from top of screen
                 VStack {
-                    Spacer()
                     if let toastText = game.toastText {
-                        bottomToastView(text: toastText, accentColor: game.toastAccentColor)
+                        topToastView(text: toastText, accentColor: game.toastAccentColor)
                             .padding(.horizontal, contentPadding + 4)
+                            .padding(.top, 4)
                             .transition(
                                 .asymmetric(
-                                    insertion: .scale(scale: 0.85).combined(with: .opacity).combined(with: .offset(y: 20)),
-                                    removal: .scale(scale: 0.9).combined(with: .opacity)
+                                    insertion: .move(edge: .top).combined(with: .opacity),
+                                    removal: .move(edge: .top).combined(with: .opacity)
                                 )
                             )
                     }
+                    Spacer()
                 }
-                .padding(.bottom, 6)
-                .animation(.spring(response: 0.35, dampingFraction: 0.7), value: game.toastText)
+                .animation(.spring(response: 0.35, dampingFraction: 0.8), value: game.toastText)
                 .allowsHitTesting(false)
+
+                // ── Bottom navigation bar ──
+                VStack {
+                    Spacer()
+                    bottomNavBar
+                }
+                .ignoresSafeArea(.keyboard)
 
                 // Random celebration — pinned to bottom of screen (above toast)
                 if let celebration = activeCelebration {
@@ -452,6 +395,14 @@ struct PrismGameView: View {
         }
         .fullScreenCover(isPresented: $showStartScreen) {
             startScreenView
+        }
+        .fullScreenCover(isPresented: $showDailyPuzzle) {
+            DailyPuzzleView()
+        }
+        .sheet(isPresented: $showShareSheet) {
+            if let img = shareImage {
+                ShareSheet(image: img)
+            }
         }
         .alert("Start New Game?", isPresented: $showNewGameConfirm) {
             Button("Cancel", role: .cancel) { }
@@ -659,28 +610,6 @@ struct PrismGameView: View {
                 ))
                 .tint(Color(hex: 0xE8876B))
 
-                Button {
-                    showSettings = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        showAchievements = true
-                    }
-                } label: {
-                    HStack {
-                        Image(systemName: "trophy.fill")
-                            .foregroundStyle(Color(hex: 0xF59E0B))
-                        Text("Achievements")
-                            .foregroundStyle(Color(hex: 0x2A2A3A))
-                        Spacer()
-                        let count = StatsManager.shared.unlockedBadges.count
-                        Text("\(count)/\(StatsManager.allAchievements.count)")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(Color(hex: 0xAAAAAA))
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Color(hex: 0xCCCCCC))
-                    }
-                }
-
                 Section {
                     rulesRow(icon: "drop.fill", color: Color(hex: 0xD4724A),
                              text: "Tap two tiles to mix their colors")
@@ -791,58 +720,160 @@ struct PrismGameView: View {
                 }
                 .transition(.opacity)
             } else {
-                // Main start screen
-                VStack(spacing: 32) {
+                // Main start screen — NYT-style layout
+                VStack(spacing: 0) {
                     Spacer()
 
+                    // Branding
                     CatMascotView()
                         .frame(maxWidth: .infinity)
-                        .frame(height: 120)
+                        .frame(height: 100)
+                        .padding(.bottom, 8)
 
+                    Text("Stillhue")
+                        .font(.system(size: 42, weight: .regular, design: .serif))
+                        .foregroundStyle(Color(hex: 0x2A2A2A))
+                        .tracking(2)
+                        .padding(.bottom, 2)
+
+                    Text("A color-mixing puzzle")
+                        .font(.system(size: 14, weight: .medium, design: .serif))
+                        .foregroundStyle(Color(hex: 0x999999))
+                        .padding(.bottom, 28)
+
+                    // Game mode cards
                     VStack(spacing: 12) {
-                        Text("Stillhue")
-                            .font(.system(size: 42, weight: .regular, design: .serif))
-                            .foregroundStyle(Color(hex: 0x2A2A2A))
-                            .tracking(2)
-
-                        Text("A color-mixing puzzle")
-                            .font(.system(size: 15, weight: .medium, design: .serif))
-                            .foregroundStyle(Color(hex: 0x999999))
-                    }
-
-                    Spacer()
-
-                    VStack(spacing: 14) {
-                        // Play — primary action, bold black pill
+                        // Classic Mode — primary card
                         Button {
                             MusicManager.shared.setGameplayVolume()
                             showStartScreen = false
                         } label: {
-                            Text("Play")
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundStyle(.white)
-                                .tracking(3)
-                                .padding(.horizontal, 52)
-                                .padding(.vertical, 14)
-                                .background(
-                                    Capsule()
-                                        .fill(Color(hex: 0x2A2A2A))
-                                        .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
-                                )
+                            HStack(spacing: 14) {
+                                // Color circle icon
+                                ZStack {
+                                    Circle()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [Color(hex: 0xD4724A), Color(hex: 0xE8876B)],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                        .frame(width: 42, height: 42)
+                                    Image(systemName: "paintpalette.fill")
+                                        .font(.system(size: 18))
+                                        .foregroundStyle(.white)
+                                }
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Classic")
+                                        .font(.system(size: 17, weight: .semibold, design: .serif))
+                                        .foregroundStyle(Color(hex: 0x2A2A2A))
+                                    Text("Mix colors, beat rounds, chase your high score")
+                                        .font(.system(size: 12, weight: .regular, design: .serif))
+                                        .foregroundStyle(Color(hex: 0x888888))
+                                        .lineLimit(1)
+                                }
+
+                                Spacer()
+
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(Color(hex: 0xCCCCCC))
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(.white.opacity(0.88))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .fill(.thinMaterial)
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .strokeBorder(.white.opacity(0.9), lineWidth: 0.5)
+                                    )
+                                    .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
+                            )
                         }
 
-                        // How to Play — subtle text link
+                        // Hue of the Day — daily card
                         Button {
-                            withAnimation(.easeInOut(duration: 0.25)) {
-                                showHowToPlay = true
-                            }
+                            showDailyPuzzle = true
                         } label: {
-                            Text("How to Play")
-                                .font(.system(size: 14, weight: .medium, design: .serif))
-                                .foregroundStyle(Color(hex: 0xAAAAAA))
+                            HStack(spacing: 14) {
+                                ZStack {
+                                    Circle()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [Color(hex: 0x5A9BC7), Color(hex: 0x8D99AE)],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                        .frame(width: 42, height: 42)
+                                    Image(systemName: "calendar")
+                                        .font(.system(size: 18))
+                                        .foregroundStyle(.white)
+                                }
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack(spacing: 6) {
+                                        Text("Hue of the Day")
+                                            .font(.system(size: 17, weight: .semibold, design: .serif))
+                                            .foregroundStyle(Color(hex: 0x2A2A2A))
+                                        // Daily indicator dot
+                                        if !DailyPuzzleState().hasPlayedToday {
+                                            Circle()
+                                                .fill(Color(hex: 0xFF5E6C))
+                                                .frame(width: 7, height: 7)
+                                        }
+                                    }
+                                    Text("Mix 3 tiles to match today's color")
+                                        .font(.system(size: 12, weight: .regular, design: .serif))
+                                        .foregroundStyle(Color(hex: 0x888888))
+                                        .lineLimit(1)
+                                }
+
+                                Spacer()
+
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(Color(hex: 0xCCCCCC))
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(.white.opacity(0.88))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .fill(.thinMaterial)
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .strokeBorder(.white.opacity(0.9), lineWidth: 0.5)
+                                    )
+                                    .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
+                            )
                         }
                     }
-                    .padding(.bottom, 60)
+                    .padding(.horizontal, 24)
+
+                    Spacer()
+
+                    // How to Play — bottom link
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            showHowToPlay = true
+                        }
+                    } label: {
+                        Text("How to Play")
+                            .font(.system(size: 14, weight: .medium, design: .serif))
+                            .foregroundStyle(Color(hex: 0xAAAAAA))
+                    }
+                    .padding(.bottom, 40)
                 }
                 .transition(.opacity)
             }
@@ -851,6 +882,9 @@ struct PrismGameView: View {
         .onAppear {
             MusicManager.shared.setMenuVolume()
             MusicManager.shared.startTheme()
+        }
+        .fullScreenCover(isPresented: $showDailyPuzzle) {
+            DailyPuzzleView()
         }
     }
 
@@ -955,18 +989,18 @@ struct PrismGameView: View {
         .frame(width: totalWidth, height: totalHeight)
     }
 
-    // MARK: - Bottom Toast
+    // MARK: - Top Toast
 
-    /// iOS-style toast that slides up from the bottom of the screen.
+    /// Toast that slides down from top of screen.
     /// Glass card style matching the main card, with subtle accent color.
-    private func bottomToastView(text: String, accentColor: Color?) -> some View {
+    private func topToastView(text: String, accentColor: Color?) -> some View {
         return HStack(spacing: 0) {
             Text(text)
                 .font(.system(size: 14, weight: .medium, design: .serif))
                 .foregroundStyle(Color(hex: 0x3A3A4A))
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+        .padding(.vertical, 12)
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 16)
@@ -988,6 +1022,154 @@ struct PrismGameView: View {
                 )
                 .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
         )
+    }
+
+    // MARK: - Lives + Hint Display (combined)
+
+    /// Lives teardrops with a hint button tucked underneath.
+    private var livesAndHintDisplay: some View {
+        VStack(spacing: 3) {
+            Text("LIVES")
+                .font(.system(size: 10, weight: .semibold, design: .serif))
+                .foregroundStyle(Color(hex: 0x888888))
+                .tracking(1.5)
+            HStack(spacing: 4) {
+                let maxSlots = max(3, game.lives)
+                ForEach(0..<maxSlots, id: \.self) { i in
+                    Teardrop()
+                        .fill(
+                            i < game.lives
+                                ? LinearGradient(
+                                    colors: [Color(hex: 0xFF5E6C), Color(hex: 0xA080E0)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                  )
+                                : LinearGradient(
+                                    colors: [Color(hex: 0xDDDDDD), Color(hex: 0xCCCCCC)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                  )
+                        )
+                        .frame(width: 14, height: 18)
+                        .opacity(i < game.lives ? 1.0 : 0.3)
+                }
+            }
+            .frame(height: 22)
+            .animation(.spring(response: 0.3), value: game.lives)
+
+            // Hint button — compact, right next to lives
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    _ = game.useHintToken()
+                }
+            } label: {
+                HStack(spacing: 3) {
+                    Image(systemName: "lightbulb.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                    if game.hintTokens > 0 {
+                        Text("\(game.hintTokens)")
+                            .font(.system(size: 10, weight: .bold))
+                    }
+                }
+                .foregroundStyle(game.hintTokens > 0 ? Color(hex: 0x5A9BC7) : Color(hex: 0xCCCCCC))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(
+                    Capsule()
+                        .fill(game.hintTokens > 0 ? Color(hex: 0x5A9BC7).opacity(0.1) : Color(hex: 0xEEEEEE))
+                )
+            }
+            .opacity(game.hintTokens > 0 && !game.hintActive ? 1 : 0.3)
+            .allowsHitTesting(game.hintTokens > 0 && !game.hintActive)
+        }
+    }
+
+    // MARK: - Bottom Navigation Bar
+
+    /// 5-icon tab bar: Hue of Day, New Game, Home, Achievements, Share
+    private var bottomNavBar: some View {
+        HStack(spacing: 0) {
+            // Hue of the Day
+            navBarButton(icon: "calendar", label: "Daily") {
+                showDailyPuzzle = true
+            }
+
+            // New Game
+            navBarButton(icon: "arrow.counterclockwise", label: "New") {
+                if game.round > 1 && !game.isGameOver {
+                    showNewGameConfirm = true
+                } else {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        game.newGame()
+                    }
+                }
+            }
+
+            // Home (center, larger)
+            Button {
+                showStartScreen = true
+                MusicManager.shared.setMenuVolume()
+            } label: {
+                VStack(spacing: 2) {
+                    Image(systemName: "house.fill")
+                        .font(.system(size: 22, weight: .medium))
+                        .foregroundStyle(Color(hex: 0x2A2A2A))
+                    Text("Home")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(Color(hex: 0x888888))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+            }
+
+            // Achievements
+            navBarButton(icon: "trophy", label: "Awards") {
+                showAchievements = true
+            }
+
+            // Share
+            navBarButton(icon: "square.and.arrow.up", label: "Share") {
+                let img = ShareImageRenderer.render(
+                    score: game.score,
+                    round: game.round,
+                    highScore: game.highScore,
+                    totalBlends: game.totalBlendsThisGame,
+                    isNewRecord: game.score >= game.highScore && game.score > 0
+                )
+                shareImage = img
+                showShareSheet = true
+            }
+        }
+        .padding(.top, 6)
+        .padding(.bottom, 2)
+        .background(
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    VStack {
+                        Rectangle()
+                            .fill(Color(hex: 0xDDDDDD).opacity(0.5))
+                            .frame(height: 0.5)
+                        Spacer()
+                    }
+                )
+                .ignoresSafeArea(.all, edges: .bottom)
+        )
+    }
+
+    private func navBarButton(icon: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 2) {
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(Color(hex: 0x4A4A4A))
+                Text(label)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(Color(hex: 0x888888))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+        }
     }
 
     private func glassCircle(color: Color) -> some View {

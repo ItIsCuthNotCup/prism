@@ -22,6 +22,9 @@
 		A1000013000000000000000D /* ChromaHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000013000000000000000D; };
 		A1000014000000000000000E /* TunnelBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000014000000000000000E; };
 		A1000015000000000000000F /* theme_intro.wav in Resources */ = {isa = PBXBuildFile; fileRef = A2000015000000000000000F; };
+		A1000016000000000000D001 /* DailyPuzzleState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000016000000000000D001; };
+		A1000017000000000000D002 /* DailyPuzzleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000017000000000000D002; };
+		A1000018000000000000D003 /* ColorWheelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000018000000000000D003; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -40,6 +43,9 @@
 		A2000013000000000000000D /* ChromaHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChromaHeader.swift; sourceTree = "<group>"; };
 		A2000014000000000000000E /* TunnelBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelBackground.swift; sourceTree = "<group>"; };
 		A2000015000000000000000F /* theme_intro.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = theme_intro.wav; sourceTree = "<group>"; };
+		A2000016000000000000D001 /* DailyPuzzleState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPuzzleState.swift; sourceTree = "<group>"; };
+		A2000017000000000000D002 /* DailyPuzzleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPuzzleView.swift; sourceTree = "<group>"; };
+		A2000018000000000000D003 /* ColorWheelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorWheelView.swift; sourceTree = "<group>"; };
 		A30000000000000000000001 /* Prism.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Prism.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -89,6 +95,7 @@
 				A20000020000000000000002 /* TileColor.swift */,
 				A20000030000000000000003 /* GridPosition.swift */,
 				A20000040000000000000004 /* GameState.swift */,
+				A2000016000000000000D001 /* DailyPuzzleState.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -104,6 +111,8 @@
 				A2000010000000000000000A /* GameOverOverlay.swift */,
 				A2000013000000000000000D /* ChromaHeader.swift */,
 				A2000014000000000000000E /* TunnelBackground.swift */,
+				A2000017000000000000D002 /* DailyPuzzleView.swift */,
+				A2000018000000000000D003 /* ColorWheelView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -199,6 +208,9 @@
 				A1000011000000000000000B /* HapticManager.swift in Sources */,
 				A1000013000000000000000D /* ChromaHeader.swift in Sources */,
 				A1000014000000000000000E /* TunnelBackground.swift in Sources */,
+				A1000016000000000000D001 /* DailyPuzzleState.swift in Sources */,
+				A1000017000000000000D002 /* DailyPuzzleView.swift in Sources */,
+				A1000018000000000000D003 /* ColorWheelView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
