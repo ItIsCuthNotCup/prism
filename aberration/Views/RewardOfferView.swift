@@ -73,12 +73,12 @@ struct RewardOfferView: View {
 
                 // Title
                 Text("Earn a Prize")
-                    .font(.system(size: 20, weight: .bold, design: .serif))
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundStyle(Color(hex: 0x3A3A4A))
 
                 // Description
                 Text("Watch a short ad to open a reward chest.\nYou could get an extra life or a hint!")
-                    .font(.system(size: 14, weight: .medium, design: .serif))
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
                     .foregroundStyle(Color(hex: 0x8D99AE))
                     .multilineTextAlignment(.center)
                     .lineSpacing(2)

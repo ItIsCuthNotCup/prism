@@ -5,7 +5,7 @@ struct GridView: View {
     let cellSize: CGFloat
 
     private let spacing: CGFloat = 5
-    private let inset: CGFloat = 4
+    private let inset: CGFloat = 6
 
     var body: some View {
         let columns = Array(
@@ -122,23 +122,20 @@ struct GridView: View {
                 }
             }
         } else {
-            // Empty cell — subtle but present
+            // Empty cell — subtle but tactile
             RoundedRectangle(cornerRadius: 10)
-                .fill(Color(hex: 0xE4E4EA))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(Color(hex: 0xD0D0D8).opacity(0.7), lineWidth: 0.75)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(hex: 0xEAEAEE), Color(hex: 0xE0E0E5)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(
-                            LinearGradient(
-                                colors: [.black.opacity(0.03), .clear, .white.opacity(0.06)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
+                        .strokeBorder(Color(hex: 0xD0D0D8), lineWidth: 1)
                 )
+                .shadow(color: .black.opacity(0.04), radius: 2, y: 1)
         }
     }
 

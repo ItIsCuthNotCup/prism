@@ -73,11 +73,11 @@ struct RewardChestView: View {
                 // Reward label
                 VStack(spacing: 4) {
                     Text(rewardTitle)
-                        .font(.system(size: 20, weight: .bold, design: .serif))
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
                         .foregroundStyle(Color(hex: 0x3A3A4A))
 
                     Text(rewardSubtitle)
-                        .font(.system(size: 14, weight: .medium, design: .serif))
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
                         .foregroundStyle(Color(hex: 0x8D99AE))
                 }
                 .opacity(labelOpacity)

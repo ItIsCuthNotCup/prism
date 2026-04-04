@@ -31,7 +31,7 @@ struct AwardsContainerView: View {
                     Spacer()
 
                     Button("Done") { dismiss() }
-                        .font(.system(size: 15, weight: .medium, design: .serif))
+                        .font(.system(size: 15, weight: .medium, design: .rounded))
                         .frame(width: 50)
                 }
                 .padding(.horizontal, 16)
@@ -69,7 +69,7 @@ struct AwardsContainerView: View {
             }
         } label: {
             Text(title)
-                .font(.system(size: 13, weight: selectedPage == index ? .bold : .medium, design: .serif))
+                .font(.system(size: 13, weight: selectedPage == index ? .bold : .medium, design: .rounded))
                 .foregroundStyle(selectedPage == index ? Color(hex: 0x2A2A2A) : Color(hex: 0x999999))
                 .padding(.horizontal, 20)
                 .padding(.vertical, 8)
@@ -101,7 +101,7 @@ struct AchievementsPageView: View {
             // Progress count
             let count = achievements.filter { unlocked.contains($0.id) }.count
             Text("\(count) / \(achievements.count)")
-                .font(.system(size: 28, weight: .black, design: .serif))
+                .font(.system(size: 28, weight: .black, design: .rounded))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [Color(hex: 0xD4724A), Color(hex: 0xE8876B)],
@@ -281,7 +281,7 @@ struct AchievementsPageView: View {
 
             VStack(alignment: isUnlocked ? .leading : .center, spacing: 6) {
                 Text(achievement.name.uppercased())
-                    .font(.system(size: 15, weight: .black, design: .serif))
+                    .font(.system(size: 15, weight: .black, design: .rounded))
                     .foregroundStyle(
                         isUnlocked
                             ? Color(hue: achievement.hue, saturation: 0.7, brightness: 0.4)
@@ -335,7 +335,7 @@ struct AchievementsPageView: View {
     private func footerStat(label: String, value: String) -> some View {
         VStack(spacing: 2) {
             Text(value)
-                .font(.system(size: 16, weight: .bold, design: .serif))
+                .font(.system(size: 16, weight: .bold, design: .rounded))
                 .foregroundStyle(Color(hex: 0x3A3A4A))
             Text(label)
                 .font(.system(size: 9, weight: .medium))
@@ -390,7 +390,7 @@ struct StatsPageView: View {
             }
         } label: {
             Text(title)
-                .font(.system(size: 12, weight: selectedSub == index ? .bold : .medium, design: .serif))
+                .font(.system(size: 12, weight: selectedSub == index ? .bold : .medium, design: .rounded))
                 .foregroundStyle(selectedSub == index ? Color(hex: 0x2A2A2A) : Color(hex: 0x999999))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
@@ -426,11 +426,11 @@ struct StatsPageView: View {
                     VStack(spacing: 4) {
                         HStack {
                             Text("\(stats.discoveredColors.count) of \(PrismColor.wheelSize)")
-                                .font(.system(size: 13, weight: .semibold, design: .serif))
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
                                 .foregroundStyle(Color(hex: 0x3A3A4A))
                             Spacer()
                             Text("\(Int(round(Double(stats.discoveredColors.count) / Double(PrismColor.wheelSize) * 100)))%")
-                                .font(.system(size: 13, weight: .bold, design: .serif))
+                                .font(.system(size: 13, weight: .bold, design: .rounded))
                                 .foregroundStyle(Color(hex: 0xD4724A))
                         }
                         GeometryReader { geo in
@@ -503,7 +503,7 @@ struct StatsPageView: View {
                         ForEach(0..<5, id: \.self) { i in
                             HStack(spacing: 8) {
                                 Text("\(i + 1)")
-                                    .font(.system(size: 13, weight: .bold, design: .serif))
+                                    .font(.system(size: 13, weight: .bold, design: .rounded))
                                     .foregroundStyle(Color(hex: 0x3A3A4A))
                                     .frame(width: 16)
 
@@ -530,7 +530,7 @@ struct StatsPageView: View {
                                             .frame(width: barWidth, height: 22)
                                             .overlay(alignment: .trailing) {
                                                 Text("\(dist[i])")
-                                                    .font(.system(size: 11, weight: .bold, design: .serif))
+                                                    .font(.system(size: 11, weight: .bold, design: .rounded))
                                                     .foregroundStyle(.white)
                                                     .padding(.trailing, 6)
                                             }
@@ -588,7 +588,7 @@ struct StatsPageView: View {
     private func heroStat(value: String, label: String) -> some View {
         VStack(spacing: 2) {
             Text(value)
-                .font(.system(size: 24, weight: .black, design: .serif))
+                .font(.system(size: 24, weight: .black, design: .rounded))
                 .foregroundStyle(Color(hex: 0x2A2A2A))
             Text(label)
                 .font(.system(size: 9, weight: .bold))
@@ -604,7 +604,7 @@ struct StatsPageView: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(color)
             Text(title)
-                .font(.system(size: 14, weight: .bold, design: .serif))
+                .font(.system(size: 14, weight: .bold, design: .rounded))
                 .foregroundStyle(Color(hex: 0x3A3A4A))
             Spacer()
         }
@@ -613,11 +613,11 @@ struct StatsPageView: View {
     private func statRow(label: String, value: String) -> some View {
         HStack {
             Text(label)
-                .font(.system(size: 13, weight: .regular, design: .serif))
+                .font(.system(size: 13, weight: .regular, design: .rounded))
                 .foregroundStyle(Color(hex: 0x777777))
             Spacer()
             Text(value)
-                .font(.system(size: 14, weight: .bold, design: .serif))
+                .font(.system(size: 14, weight: .bold, design: .rounded))
                 .foregroundStyle(Color(hex: 0x3A3A4A))
         }
     }
@@ -625,7 +625,7 @@ struct StatsPageView: View {
     private func miniStat(value: String, label: String, color: Color) -> some View {
         VStack(spacing: 4) {
             Text(value)
-                .font(.system(size: 22, weight: .black, design: .serif))
+                .font(.system(size: 22, weight: .black, design: .rounded))
                 .foregroundStyle(color)
             Text(label)
                 .font(.system(size: 9, weight: .medium))

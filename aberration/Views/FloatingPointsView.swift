@@ -36,14 +36,14 @@ struct FloatingPointsView: View {
                     Image(systemName: bonus.type.sfIcon)
                         .font(.system(size: 12, weight: .bold))
                     Text(bonus.type.label)
-                        .font(.system(size: 14, weight: .bold, design: .serif))
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
                     if bonus.points > 0 {
                         Text("+\(bonus.points)")
-                            .font(.system(size: 13, weight: .bold, design: .serif))
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
                     }
                     if bonus.isMultiplier {
                         Text("5×")
-                            .font(.system(size: 15, weight: .black, design: .serif))
+                            .font(.system(size: 15, weight: .black, design: .rounded))
                     }
                 }
                 .foregroundStyle(color)
@@ -58,11 +58,11 @@ struct FloatingPointsView: View {
             HStack(spacing: 4) {
                 if multiplier > 1 {
                     Text("×\(multiplier)")
-                        .font(.system(size: 13, weight: .black, design: .serif))
+                        .font(.system(size: 13, weight: .black, design: .rounded))
                         .foregroundStyle(color)
                 }
                 Text("+\(amount)")
-                    .font(.system(size: 28, weight: .black, design: .serif))
+                    .font(.system(size: 28, weight: .black, design: .rounded))
                     .foregroundStyle(color)
             }
             .shadow(color: .white, radius: 8)

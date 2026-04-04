@@ -63,7 +63,7 @@ struct GameOverOverlay: View {
 
                 // Header
                 Text(headerText)
-                    .font(.system(size: 24, weight: .bold, design: .serif))
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
                     .foregroundStyle(
                         isNewHighScore
                             ? Color(hex: 0xF59E0B)
@@ -74,7 +74,7 @@ struct GameOverOverlay: View {
                 // Score display
                 VStack(spacing: 4) {
                     Text("\(score)")
-                        .font(.system(size: 52, weight: .black, design: .serif))
+                        .font(.system(size: 52, weight: .black, design: .rounded))
                         .foregroundStyle(
                             LinearGradient(
                                 colors: isNewHighScore
@@ -106,7 +106,7 @@ struct GameOverOverlay: View {
                 // The near-miss hook — this is the line that makes them hit Play Again
                 if let nearMiss = nearMissMessage {
                     Text(nearMiss)
-                        .font(.system(size: 14, weight: .medium, design: .serif))
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
                         .foregroundStyle(Color(hex: 0x8D99AE))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 20)
@@ -266,7 +266,7 @@ struct GameOverOverlay: View {
     private func miniStat(label: String, value: String) -> some View {
         VStack(spacing: 2) {
             Text(value)
-                .font(.system(size: 18, weight: .bold, design: .serif))
+                .font(.system(size: 18, weight: .bold, design: .rounded))
                 .foregroundStyle(Color(hex: 0x3A3A4A))
             Text(label)
                 .font(.system(size: 9, weight: .medium))

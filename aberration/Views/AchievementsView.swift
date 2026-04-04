@@ -29,7 +29,7 @@ struct AchievementsView: View {
                     // Progress count
                     let count = achievements.filter { unlocked.contains($0.id) }.count
                     Text("\(count) / \(achievements.count)")
-                        .font(.system(size: 28, weight: .black, design: .serif))
+                        .font(.system(size: 28, weight: .black, design: .rounded))
                         .foregroundStyle(
                             LinearGradient(
                                 colors: [Color(hex: 0xD4724A), Color(hex: 0xE8876B)],
@@ -225,7 +225,7 @@ struct AchievementsView: View {
 
             VStack(alignment: isUnlocked ? .leading : .center, spacing: 6) {
                 Text(achievement.name.uppercased())
-                    .font(.system(size: 15, weight: .black, design: .serif))
+                    .font(.system(size: 15, weight: .black, design: .rounded))
                     .foregroundStyle(
                         isUnlocked
                             ? Color(hue: achievement.hue, saturation: 0.7, brightness: 0.4)
@@ -279,7 +279,7 @@ struct AchievementsView: View {
     private func footerStat(label: String, value: String) -> some View {
         VStack(spacing: 2) {
             Text(value)
-                .font(.system(size: 16, weight: .bold, design: .serif))
+                .font(.system(size: 16, weight: .bold, design: .rounded))
                 .foregroundStyle(Color(hex: 0x3A3A4A))
             Text(label)
                 .font(.system(size: 9, weight: .medium))

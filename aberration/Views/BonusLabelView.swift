@@ -26,16 +26,16 @@ struct BonusLabelView: View {
                     .font(.system(size: 14, weight: .bold))
 
                 Text(bonus.type.label)
-                    .font(.system(size: 16, weight: .black, design: .serif))
+                    .font(.system(size: 16, weight: .black, design: .rounded))
 
                 if bonus.points > 0 {
                     Text("+\(bonus.points)")
-                        .font(.system(size: 14, weight: .bold, design: .serif))
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
                 }
 
                 if bonus.isMultiplier {
                     Text("5×")
-                        .font(.system(size: 18, weight: .black, design: .serif))
+                        .font(.system(size: 18, weight: .black, design: .rounded))
                 }
             }
             .foregroundStyle(Color(hex: 0x2A2A2A))

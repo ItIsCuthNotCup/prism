@@ -55,8 +55,8 @@ struct PrismGameView: View {
                             showSettings.toggle()
                         } label: {
                             Image(systemName: "gearshape")
-                                .font(.system(size: 17, weight: .medium))
-                                .foregroundStyle(Color(hex: 0x555555))
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundStyle(Color(hex: 0x4A4A4A))
                         }
                         Spacer()
                     }
@@ -73,7 +73,7 @@ struct PrismGameView: View {
 
                     VStack(spacing: 0) {
                       // Stats bar — ROUND left, SCORE center, LIVES+HINT right
-                      HStack(alignment: .center, spacing: 0) {
+                      HStack(alignment: .top, spacing: 0) {
                           secondaryStat(label: "ROUND", value: "\(game.round)")
                               .frame(maxWidth: .infinity)
                           heroStat(label: "SCORE", value: "\(game.score)")
@@ -108,12 +108,17 @@ struct PrismGameView: View {
                                           .strokeBorder(.white.opacity(0.5), lineWidth: 0.5)
                                   )
                                   .frame(width: cellSize * 1.1, height: cellSize * 1.1)
-                                  .shadow(color: target.color.opacity(0.25), radius: 10, y: 3)
+                                  .overlay(
+                                      RoundedRectangle(cornerRadius: 12)
+                                          .strokeBorder(target.color.opacity(0.35), lineWidth: 2)
+                                  )
+                                  .shadow(color: target.color.opacity(0.15), radius: 6, y: 2)
 
                               Text(target.name.uppercased())
-                                  .font(.system(size: 13, weight: .bold))
+                                  .font(.system(size: 13, weight: .bold, design: .rounded))
                                   .foregroundStyle(Color(hex: 0x3A3A4A))
-                                  .tracking(3)
+                                  .tracking(1.5)
+                                  .frame(maxWidth: .infinity)
 
                               // Selection hint (formula area)
                               ZStack {
@@ -123,14 +128,14 @@ struct PrismGameView: View {
                                               .fill(sel.color)
                                               .frame(width: 10, height: 10)
                                           Text("\(sel.name) + ?")
-                                              .font(.system(size: 11, weight: .medium))
+                                              .font(.system(size: 11, weight: .medium, design: .rounded))
                                               .foregroundStyle(Color(hex: 0xAAAAAA))
                                       }
                                   } else if game.showMergeHint && game.tutorialCoachText == nil {
                                       Text("Tap two colors to mix")
-                                          .font(.system(size: 11, weight: .medium))
+                                          .font(.system(size: 11, weight: .medium, design: .rounded))
                                           .foregroundStyle(Color(hex: 0x999999))
-                                          .tracking(1)
+                                          .tracking(0.5)
                                   }
                               }
                               .frame(height: 16)
@@ -456,13 +461,13 @@ struct PrismGameView: View {
     // MARK: - Subviews
 
     private func heroStat(label: String, value: String) -> some View {
-        VStack(spacing: 1) {
+        VStack(spacing: 2) {
             Text(label)
-                .font(.system(size: 10, weight: .bold, design: .serif))
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
                 .foregroundStyle(Color(hex: 0x888888))
-                .tracking(2)
+                .tracking(1.5)
             Text(value)
-                .font(.system(size: 26, weight: .black, design: .serif))
+                .font(.system(size: 28, weight: .black, design: .rounded))
                 .foregroundStyle(Color(hex: 0x2A2A3A))
                 .contentTransition(.numericText())
                 .animation(.spring(response: 0.3), value: value)
@@ -470,14 +475,14 @@ struct PrismGameView: View {
     }
 
     private func secondaryStat(label: String, value: String, accent: Bool = false) -> some View {
-        VStack(spacing: 1) {
+        VStack(spacing: 2) {
             Text(label)
-                .font(.system(size: 10, weight: .semibold, design: .serif))
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
                 .foregroundStyle(Color(hex: 0x888888))
                 .tracking(1.5)
             Text(value)
-                .font(.system(size: 16, weight: .semibold, design: .serif))
-                .foregroundStyle(accent ? Color(hex: 0x8D99AE) : Color(hex: 0x5A5A6A))
+                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .foregroundStyle(accent ? Color(hex: 0x8D99AE) : Color(hex: 0x4A4A5A))
                 .contentTransition(.numericText())
                 .animation(.spring(response: 0.3), value: value)
         }
@@ -488,7 +493,7 @@ struct PrismGameView: View {
     private var livesDisplay: some View {
         VStack(spacing: 1) {
             Text("LIVES")
-                .font(.system(size: 10, weight: .semibold, design: .serif))
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
                 .foregroundStyle(Color(hex: 0x888888))
                 .tracking(1.5)
             HStack(spacing: 4) {
@@ -509,7 +514,7 @@ struct PrismGameView: View {
                                   )
                         )
                         .frame(width: 14, height: 18)
-                        .opacity(i < game.lives ? 1.0 : 0.3)
+                        .opacity(i < game.lives ? 1.0 : 0.45)
                 }
             }
             .frame(height: 26) // match number text height for alignment
@@ -618,10 +623,10 @@ struct PrismGameView: View {
                                     .frame(width: 24)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Color Assistance")
-                                        .font(.system(size: 14, weight: .medium, design: .serif))
+                                        .font(.system(size: 14, weight: .medium, design: .rounded))
                                         .foregroundStyle(Color(hex: 0x3A3A4A))
                                     Text("Show color names on tiles")
-                                        .font(.system(size: 11, weight: .regular, design: .serif))
+                                        .font(.system(size: 11, weight: .regular, design: .rounded))
                                         .foregroundStyle(Color(hex: 0x999999))
                                 }
                                 Spacer()
@@ -644,7 +649,7 @@ struct PrismGameView: View {
                                     .foregroundStyle(Color(hex: 0xE8876B))
                                     .frame(width: 24)
                                 Text("Sound Effects")
-                                    .font(.system(size: 14, weight: .medium, design: .serif))
+                                    .font(.system(size: 14, weight: .medium, design: .rounded))
                                     .foregroundStyle(Color(hex: 0x3A3A4A))
                                 Spacer()
                                 Toggle("", isOn: Binding(
@@ -666,7 +671,7 @@ struct PrismGameView: View {
                                     .foregroundStyle(Color(hex: 0xD4724A))
                                     .frame(width: 24)
                                 Text("Music")
-                                    .font(.system(size: 14, weight: .medium, design: .serif))
+                                    .font(.system(size: 14, weight: .medium, design: .rounded))
                                     .foregroundStyle(Color(hex: 0x3A3A4A))
                                 Spacer()
                                 Toggle("", isOn: Binding(
@@ -688,7 +693,7 @@ struct PrismGameView: View {
                                     .foregroundStyle(Color(hex: 0xFF5E6C))
                                     .frame(width: 24)
                                 Text("Haptics")
-                                    .font(.system(size: 14, weight: .medium, design: .serif))
+                                    .font(.system(size: 14, weight: .medium, design: .rounded))
                                     .foregroundStyle(Color(hex: 0x3A3A4A))
                                 Spacer()
                                 Toggle("", isOn: Binding(
@@ -740,7 +745,7 @@ struct PrismGameView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { showSettings = false }
-                        .font(.system(size: 15, weight: .medium, design: .serif))
+                        .font(.system(size: 15, weight: .medium, design: .rounded))
                 }
             }
         }
@@ -755,7 +760,7 @@ struct PrismGameView: View {
                 .foregroundStyle(color)
                 .frame(width: 24, alignment: .center)
             Text(text)
-                .font(.system(size: 14, weight: .regular, design: .serif))
+                .font(.system(size: 14, weight: .regular, design: .rounded))
                 .foregroundStyle(Color(hex: 0x3A3A4A))
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
@@ -766,7 +771,7 @@ struct PrismGameView: View {
 
     private func settingsSectionHeader(_ title: String) -> some View {
         Text(title.uppercased())
-            .font(.system(size: 11, weight: .bold, design: .serif))
+            .font(.system(size: 11, weight: .bold, design: .rounded))
             .foregroundStyle(Color(hex: 0xAAAAAA))
             .tracking(2)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -808,7 +813,7 @@ struct PrismGameView: View {
                     Spacer()
 
                     Text("How to Play")
-                        .font(.system(size: 24, weight: .semibold, design: .serif))
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
                         .foregroundStyle(Color(hex: 0x2A2A2A))
 
                     VStack(alignment: .leading, spacing: 16) {
@@ -878,7 +883,7 @@ struct PrismGameView: View {
                         .padding(.bottom, 2)
 
                     Text("A color-mixing puzzle")
-                        .font(.system(size: 14, weight: .medium, design: .serif))
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
                         .foregroundStyle(Color(hex: 0x999999))
                         .padding(.bottom, 28)
 
@@ -908,10 +913,10 @@ struct PrismGameView: View {
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Classic")
-                                        .font(.system(size: 17, weight: .semibold, design: .serif))
+                                        .font(.system(size: 17, weight: .semibold, design: .rounded))
                                         .foregroundStyle(Color(hex: 0x2A2A2A))
                                     Text("Mix colors, beat rounds, chase your high score")
-                                        .font(.system(size: 12, weight: .regular, design: .serif))
+                                        .font(.system(size: 12, weight: .regular, design: .rounded))
                                         .foregroundStyle(Color(hex: 0x888888))
                                         .lineLimit(1)
                                 }
@@ -962,7 +967,7 @@ struct PrismGameView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     HStack(spacing: 6) {
                                         Text("Hue of the Day")
-                                            .font(.system(size: 17, weight: .semibold, design: .serif))
+                                            .font(.system(size: 17, weight: .semibold, design: .rounded))
                                             .foregroundStyle(Color(hex: 0x2A2A2A))
                                         // Daily indicator dot
                                         if !DailyPuzzleState().hasPlayedToday {
@@ -972,7 +977,7 @@ struct PrismGameView: View {
                                         }
                                     }
                                     Text("Mix 3 tiles to match today's color")
-                                        .font(.system(size: 12, weight: .regular, design: .serif))
+                                        .font(.system(size: 12, weight: .regular, design: .rounded))
                                         .foregroundStyle(Color(hex: 0x888888))
                                         .lineLimit(1)
                                 }
@@ -1011,7 +1016,7 @@ struct PrismGameView: View {
                         }
                     } label: {
                         Text("How to Play")
-                            .font(.system(size: 14, weight: .medium, design: .serif))
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
                             .foregroundStyle(Color(hex: 0xAAAAAA))
                     }
                     .padding(.bottom, 40)
@@ -1036,7 +1041,7 @@ struct PrismGameView: View {
                 .foregroundStyle(Color(hex: 0x8D99AE))
                 .frame(width: 28)
             Text(text)
-                .font(.system(size: 14, weight: .regular, design: .serif))
+                .font(.system(size: 14, weight: .regular, design: .rounded))
                 .foregroundStyle(Color(hex: 0x4A4A5A))
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -1100,7 +1105,7 @@ struct PrismGameView: View {
         return ZStack {
             VStack(spacing: 0) {
                 Text("Tap both to mix")
-                    .font(.system(size: 13, weight: .semibold, design: .serif))
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white.opacity(0.95))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
@@ -1137,7 +1142,7 @@ struct PrismGameView: View {
     private func topToastView(text: String, accentColor: Color?) -> some View {
         return HStack(spacing: 0) {
             Text(text)
-                .font(.system(size: 14, weight: .medium, design: .serif))
+                .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundStyle(Color(hex: 0x3A3A4A))
         }
         .padding(.horizontal, 20)
@@ -1171,7 +1176,7 @@ struct PrismGameView: View {
     private var livesAndHintDisplay: some View {
         VStack(spacing: 3) {
             Text("LIVES")
-                .font(.system(size: 10, weight: .semibold, design: .serif))
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
                 .foregroundStyle(Color(hex: 0x888888))
                 .tracking(1.5)
             HStack(spacing: 4) {
@@ -1192,7 +1197,7 @@ struct PrismGameView: View {
                                   )
                         )
                         .frame(width: 14, height: 18)
-                        .opacity(i < game.lives ? 1.0 : 0.3)
+                        .opacity(i < game.lives ? 1.0 : 0.45)
                 }
             }
             .frame(height: 22)
@@ -1252,11 +1257,11 @@ struct PrismGameView: View {
                 MusicManager.shared.setMenuVolume()
             } label: {
                 VStack(spacing: 2) {
-                    Image(systemName: "house.fill")
+                    Image(systemName: "house")
                         .font(.system(size: 22, weight: .medium))
                         .foregroundStyle(Color(hex: 0x2A2A2A))
                     Text("Home")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.system(size: 9, weight: .medium, design: .rounded))
                         .foregroundStyle(Color(hex: 0x888888))
                 }
                 .frame(maxWidth: .infinity)
@@ -1305,7 +1310,7 @@ struct PrismGameView: View {
                     .font(.system(size: 18, weight: .medium))
                     .foregroundStyle(Color(hex: 0x4A4A4A))
                 Text(label)
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.system(size: 9, weight: .medium, design: .rounded))
                     .foregroundStyle(Color(hex: 0x888888))
             }
             .frame(maxWidth: .infinity)

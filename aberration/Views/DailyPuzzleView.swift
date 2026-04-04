@@ -40,12 +40,12 @@ struct DailyPuzzleView: View {
                             dismiss()
                         } label: {
                             Image(systemName: "chevron.left")
-                                .font(.system(size: 17, weight: .medium, design: .serif))
+                                .font(.system(size: 17, weight: .medium, design: .rounded))
                                 .foregroundStyle(Color(hex: 0x555555))
                         }
                         Spacer()
                         Text("Hue of the Day")
-                            .font(.system(size: 16, weight: .semibold, design: .serif))
+                            .font(.system(size: 16, weight: .semibold, design: .rounded))
                             .foregroundStyle(Color(hex: 0x3A3A4A))
                             .tracking(1)
                         Spacer()
@@ -184,7 +184,7 @@ struct DailyPuzzleView: View {
     private var attemptsDisplay: some View {
         VStack(spacing: 1) {
             Text("ATTEMPTS")
-                .font(.system(size: 10, weight: .semibold, design: .serif))
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
                 .foregroundStyle(Color(hex: 0x888888))
                 .tracking(1.5)
             HStack(spacing: 4) {
@@ -236,19 +236,19 @@ struct DailyPuzzleView: View {
                     VStack(spacing: 3) {
                         colorSwatch(inter, size: swatchSize)
                         Text(inter.name)
-                            .font(.system(size: 10, weight: .semibold, design: .serif))
+                            .font(.system(size: 10, weight: .semibold, design: .rounded))
                             .foregroundStyle(Color(hex: 0x888888))
                     }
 
                     Text("+  ?  =")
-                        .font(.system(size: 16, weight: .medium, design: .serif))
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
                         .foregroundStyle(Color(hex: 0x888888))
 
                     // Target swatch
                     VStack(spacing: 3) {
                         colorSwatch(puzzle.targetColor, size: swatchSize)
                         Text(puzzle.targetColor.name)
-                            .font(.system(size: 10, weight: .semibold, design: .serif))
+                            .font(.system(size: 10, weight: .semibold, design: .rounded))
                             .foregroundStyle(Color(hex: 0x3A3A4A))
                     }
                 }
@@ -419,17 +419,17 @@ struct DailyPuzzleView: View {
 
             VStack(spacing: 16) {
                 Text(puzzle.scoreTier)
-                    .font(.system(size: 28, weight: .bold, design: .serif))
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
                     .foregroundStyle(Color(hex: 0x2A2A2A))
 
                 colorSwatch(puzzle.targetColor, size: 70)
 
                 Text(puzzle.targetColor.name)
-                    .font(.system(size: 15, weight: .semibold, design: .serif))
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .foregroundStyle(Color(hex: 0x4A4A5A))
 
                 Text("\(puzzle.attempts.count)/\(puzzle.maxAttempts)")
-                    .font(.system(size: 14, weight: .medium, design: .serif))
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
                     .foregroundStyle(Color(hex: 0x888888))
 
                 Button {
@@ -456,7 +456,7 @@ struct DailyPuzzleView: View {
                     dismiss()
                 } label: {
                     Text("Back to Menu")
-                        .font(.system(size: 14, weight: .medium, design: .serif))
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
                         .foregroundStyle(Color(hex: 0xAAAAAA))
                 }
             }
@@ -480,13 +480,13 @@ struct DailyPuzzleView: View {
 
             VStack(spacing: 16) {
                 Text("Not today")
-                    .font(.system(size: 28, weight: .bold, design: .serif))
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
                     .foregroundStyle(Color(hex: 0x2A2A2A))
 
                 colorSwatch(puzzle.targetColor, size: 70)
 
                 Text(puzzle.targetColor.name)
-                    .font(.system(size: 15, weight: .semibold, design: .serif))
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .foregroundStyle(Color(hex: 0x4A4A5A))
 
                 Button {
@@ -513,7 +513,7 @@ struct DailyPuzzleView: View {
                     dismiss()
                 } label: {
                     Text("Back to Menu")
-                        .font(.system(size: 14, weight: .medium, design: .serif))
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
                         .foregroundStyle(Color(hex: 0xAAAAAA))
                 }
             }
@@ -626,7 +626,7 @@ struct DailyPuzzleView: View {
     private func topToastView(text: String) -> some View {
         HStack(spacing: 0) {
             Text(text)
-                .font(.system(size: 14, weight: .medium, design: .serif))
+                .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundStyle(Color(hex: 0x3A3A4A))
         }
         .padding(.horizontal, 20)
