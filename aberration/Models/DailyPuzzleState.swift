@@ -282,7 +282,7 @@ class DailyPuzzleState {
                 SoundManager.shared.playGameOver()
                 saveTodayResult()
             } else {
-                showToast("You made \(result.name) — not \(targetColor.name)")
+                showToast("That made \(result.name)")
             }
         }
 
@@ -307,6 +307,13 @@ class DailyPuzzleState {
             "attemptsUsed": attempts.count
         ]
         UserDefaults.standard.set(data, forKey: "daily_\(todayKey)")
+
+        // Record aggregate stats
+        StatsManager.shared.recordDailyResult(
+            solved: isSolved,
+            attempts: attempts.count,
+            dateKey: todayKey
+        )
     }
 
     // MARK: - Share

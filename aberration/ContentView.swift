@@ -391,7 +391,7 @@ struct PrismGameView: View {
             settingsView
         }
         .sheet(isPresented: $showAchievements) {
-            AchievementsView()
+            AwardsContainerView()
         }
         .fullScreenCover(isPresented: $showStartScreen) {
             startScreenView
@@ -603,35 +603,144 @@ struct PrismGameView: View {
 
     private var settingsView: some View {
         NavigationStack {
-            List {
-                Toggle("Show color labels on tiles", isOn: Binding(
-                    get: { game.showColorLabels },
-                    set: { game.showColorLabels = $0 }
-                ))
-                .tint(Color(hex: 0xE8876B))
+            ScrollView {
+                VStack(spacing: 16) {
+                    // ── Preferences ──
+                    VStack(spacing: 0) {
+                        settingsSectionHeader("Preferences")
 
-                Section {
-                    rulesRow(icon: "drop.fill", color: Color(hex: 0xD4724A),
-                             text: "Tap two tiles to mix their colors")
-                    rulesRow(icon: "target", color: Color(hex: 0xE63946),
-                             text: "Mix colors to match the target above the board")
-                    rulesRow(icon: "arrow.triangle.merge", color: Color(hex: 0xE8876B),
-                             text: "Red, Yellow, and Blue are primary — mix them to make any color")
-                    rulesRow(icon: "heart.fill", color: Color(hex: 0xFF5E6C),
-                             text: "3 lives. Spend one to retry a round")
-                    rulesRow(icon: "heart.circle.fill", color: Color(hex: 0xA080E0),
-                             text: "Survive 10 rounds without losing a life to earn a bonus life")
-                    rulesRow(icon: "arrow.counterclockwise", color: Color(hex: 0xF59E0B),
-                             text: "Undo takes back your last move, once per round")
-                } header: {
-                    Text("How to Play")
+                        VStack(spacing: 0) {
+                            // Color Assistance
+                            HStack(spacing: 12) {
+                                Image(systemName: "eye")
+                                    .font(.system(size: 15, weight: .medium))
+                                    .foregroundStyle(Color(hex: 0xA080E0))
+                                    .frame(width: 24)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Color Assistance")
+                                        .font(.system(size: 14, weight: .medium, design: .serif))
+                                        .foregroundStyle(Color(hex: 0x3A3A4A))
+                                    Text("Show color names on tiles")
+                                        .font(.system(size: 11, weight: .regular, design: .serif))
+                                        .foregroundStyle(Color(hex: 0x999999))
+                                }
+                                Spacer()
+                                Toggle("", isOn: Binding(
+                                    get: { game.showColorLabels },
+                                    set: { game.showColorLabels = $0 }
+                                ))
+                                .tint(Color(hex: 0xA080E0))
+                                .labelsHidden()
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+
+                            settingsDivider()
+
+                            // Sound Effects
+                            HStack(spacing: 12) {
+                                Image(systemName: "speaker.wave.2.fill")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundStyle(Color(hex: 0xE8876B))
+                                    .frame(width: 24)
+                                Text("Sound Effects")
+                                    .font(.system(size: 14, weight: .medium, design: .serif))
+                                    .foregroundStyle(Color(hex: 0x3A3A4A))
+                                Spacer()
+                                Toggle("", isOn: Binding(
+                                    get: { SoundManager.shared.sfxEnabled },
+                                    set: { SoundManager.shared.sfxEnabled = $0 }
+                                ))
+                                .tint(Color(hex: 0xE8876B))
+                                .labelsHidden()
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+
+                            settingsDivider()
+
+                            // Music
+                            HStack(spacing: 12) {
+                                Image(systemName: "music.note")
+                                    .font(.system(size: 15, weight: .medium))
+                                    .foregroundStyle(Color(hex: 0xD4724A))
+                                    .frame(width: 24)
+                                Text("Music")
+                                    .font(.system(size: 14, weight: .medium, design: .serif))
+                                    .foregroundStyle(Color(hex: 0x3A3A4A))
+                                Spacer()
+                                Toggle("", isOn: Binding(
+                                    get: { SoundManager.shared.musicEnabled },
+                                    set: { SoundManager.shared.musicEnabled = $0 }
+                                ))
+                                .tint(Color(hex: 0xD4724A))
+                                .labelsHidden()
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+
+                            settingsDivider()
+
+                            // Haptics
+                            HStack(spacing: 12) {
+                                Image(systemName: "hand.tap.fill")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundStyle(Color(hex: 0xFF5E6C))
+                                    .frame(width: 24)
+                                Text("Haptics")
+                                    .font(.system(size: 14, weight: .medium, design: .serif))
+                                    .foregroundStyle(Color(hex: 0x3A3A4A))
+                                Spacer()
+                                Toggle("", isOn: Binding(
+                                    get: { HapticManager.isEnabled },
+                                    set: { HapticManager.isEnabled = $0 }
+                                ))
+                                .tint(Color(hex: 0xFF5E6C))
+                                .labelsHidden()
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                        }
+                        .background(settingsCardBackground)
+                    }
+
+                    // ── How to Play ──
+                    VStack(spacing: 0) {
+                        settingsSectionHeader("How to Play")
+
+                        VStack(spacing: 0) {
+                            settingsRulesRow(icon: "drop.fill", color: Color(hex: 0xD4724A),
+                                             text: "Tap two tiles to mix their colors")
+                            settingsDivider()
+                            settingsRulesRow(icon: "target", color: Color(hex: 0xE63946),
+                                             text: "Mix colors to match the target above the board")
+                            settingsDivider()
+                            settingsRulesRow(icon: "arrow.triangle.merge", color: Color(hex: 0xE8876B),
+                                             text: "Red, Yellow, and Blue are primary — mix them to make any color")
+                            settingsDivider()
+                            settingsRulesRow(icon: "heart.fill", color: Color(hex: 0xFF5E6C),
+                                             text: "3 lives. Spend one to retry a round")
+                            settingsDivider()
+                            settingsRulesRow(icon: "heart.circle.fill", color: Color(hex: 0xA080E0),
+                                             text: "Survive 10 rounds without losing a life to earn a bonus life")
+                            settingsDivider()
+                            settingsRulesRow(icon: "arrow.counterclockwise", color: Color(hex: 0xF59E0B),
+                                             text: "Undo takes back your last move, once per round")
+                        }
+                        .background(settingsCardBackground)
+                    }
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 24)
             }
+            .background(Color(hex: 0xF5F5F7))
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { showSettings = false }
+                        .font(.system(size: 15, weight: .medium, design: .serif))
                 }
             }
         }
@@ -639,17 +748,49 @@ struct PrismGameView: View {
         .preferredColorScheme(.light)
     }
 
-    private func rulesRow(icon: String, color: Color, text: String) -> some View {
+    private func settingsRulesRow(icon: String, color: Color, text: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 15))
                 .foregroundStyle(color)
-                .frame(width: 24)
+                .frame(width: 24, alignment: .center)
             Text(text)
-                .font(.system(size: 14))
+                .font(.system(size: 14, weight: .regular, design: .serif))
                 .foregroundStyle(Color(hex: 0x3A3A4A))
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
         }
-        .padding(.vertical, 2)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    private func settingsSectionHeader(_ title: String) -> some View {
+        Text(title.uppercased())
+            .font(.system(size: 11, weight: .bold, design: .serif))
+            .foregroundStyle(Color(hex: 0xAAAAAA))
+            .tracking(2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, 4)
+            .padding(.bottom, 6)
+    }
+
+    private var settingsCardBackground: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.white.opacity(0.88))
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.thinMaterial)
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(.white.opacity(0.9), lineWidth: 0.5)
+        }
+        .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
+    }
+
+    private func settingsDivider() -> some View {
+        Rectangle()
+            .fill(Color(hex: 0xDDDDDD).opacity(0.5))
+            .frame(height: 0.5)
+            .padding(.leading, 52)
     }
 
     // MARK: - Start Screen

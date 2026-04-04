@@ -470,6 +470,7 @@ final class SoundManager {
     }
 
     func playClappingCat() {
+        guard sfxEnabled else { return }
         startEngine()
         guard let buffer = clappingCatBuffer else { return }
         playerNode.stop()
@@ -478,6 +479,7 @@ final class SoundManager {
     }
 
     func playChaseCat() {
+        guard sfxEnabled else { return }
         startEngine()
         guard let buffer = chaseCatBuffer else { return }
         playerNode.stop()
@@ -486,6 +488,7 @@ final class SoundManager {
     }
 
     func playBinocularsCat() {
+        guard sfxEnabled else { return }
         startEngine()
         guard let buffer = binocularsCatBuffer else { return }
         playerNode.stop()
@@ -494,6 +497,7 @@ final class SoundManager {
     }
 
     func playStretchCat() {
+        guard sfxEnabled else { return }
         startEngine()
         guard let buffer = stretchCatBuffer else { return }
         playerNode.stop()
@@ -502,6 +506,7 @@ final class SoundManager {
     }
 
     func playRollCat() {
+        guard sfxEnabled else { return }
         startEngine()
         guard let buffer = rollCatBuffer else { return }
         playerNode.stop()
@@ -509,9 +514,31 @@ final class SoundManager {
         playerNode.play()
     }
 
+    // MARK: - Toggle Settings
+
+    var sfxEnabled: Bool {
+        get { !UserDefaults.standard.bool(forKey: "chr_sfx_muted") }
+        set {
+            UserDefaults.standard.set(!newValue, forKey: "chr_sfx_muted")
+        }
+    }
+
+    var musicEnabled: Bool {
+        get { !UserDefaults.standard.bool(forKey: "chr_music_muted") }
+        set {
+            UserDefaults.standard.set(!newValue, forKey: "chr_music_muted")
+            if newValue {
+                startTheme()
+            } else {
+                stopTheme()
+            }
+        }
+    }
+
     // MARK: - SFX Playback
 
     func playSelect() {
+        guard sfxEnabled else { return }
         startEngine()
         guard let buffer = selectBuffer else { return }
         playerNode.stop()
@@ -520,6 +547,7 @@ final class SoundManager {
     }
 
     func playBlendTone(for color: PrismColor) {
+        guard sfxEnabled else { return }
         startEngine()
         guard let buffer = toneBuffers[color.wheelIndex] else { return }
         playerNode.stop()
@@ -528,6 +556,7 @@ final class SoundManager {
     }
 
     func playRoundComplete() {
+        guard sfxEnabled else { return }
         startEngine()
         guard let buffer = roundCompleteBuffer else { return }
         playerNode.stop()
@@ -536,6 +565,7 @@ final class SoundManager {
     }
 
     func playMilestone() {
+        guard sfxEnabled else { return }
         startEngine()
         guard let buffer = milestoneBuffer else { return }
         playerNode.stop()
@@ -544,6 +574,7 @@ final class SoundManager {
     }
 
     func playGameOver() {
+        guard sfxEnabled else { return }
         startEngine()
         guard let buffer = gameOverBuffer else { return }
         playerNode.stop()
@@ -552,6 +583,7 @@ final class SoundManager {
     }
 
     func playMeow() {
+        guard sfxEnabled else { return }
         startEngine()
         guard let buffer = meowBuffer else { return }
         playerNode.stop()
@@ -562,6 +594,7 @@ final class SoundManager {
     // MARK: - Theme Music Playback
 
     func startTheme() {
+        guard musicEnabled else { return }
         startEngine()
         guard let buffer = themeBuffer else { return }
         guard !musicNode.isPlaying else { return }

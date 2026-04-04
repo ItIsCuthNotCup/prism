@@ -169,6 +169,83 @@ final class StatsManager {
         checkAchievements()
     }
 
+    // MARK: - Daily Puzzle Stats
+
+    private enum DK {
+        static let dailyPlayed       = "chr_daily_played"
+        static let dailyWins         = "chr_daily_wins"
+        static let dailyCurrentStreak = "chr_daily_current_streak"
+        static let dailyMaxStreak    = "chr_daily_max_streak"
+        static let dailyGuessDistribution = "chr_daily_guess_dist"
+        static let dailyLastPlayedDate = "chr_daily_last_date"
+    }
+
+    var dailyPlayed: Int {
+        get { defaults.integer(forKey: DK.dailyPlayed) }
+        set { defaults.set(newValue, forKey: DK.dailyPlayed) }
+    }
+    var dailyWins: Int {
+        get { defaults.integer(forKey: DK.dailyWins) }
+        set { defaults.set(newValue, forKey: DK.dailyWins) }
+    }
+    var dailyCurrentStreak: Int {
+        get { defaults.integer(forKey: DK.dailyCurrentStreak) }
+        set { defaults.set(newValue, forKey: DK.dailyCurrentStreak) }
+    }
+    var dailyMaxStreak: Int {
+        get { defaults.integer(forKey: DK.dailyMaxStreak) }
+        set { defaults.set(newValue, forKey: DK.dailyMaxStreak) }
+    }
+    /// Array of 5 ints: index 0 = solved in 1, index 4 = solved in 5
+    var dailyGuessDistribution: [Int] {
+        get { defaults.array(forKey: DK.dailyGuessDistribution) as? [Int] ?? [0, 0, 0, 0, 0] }
+        set { defaults.set(newValue, forKey: DK.dailyGuessDistribution) }
+    }
+    var dailyLastPlayedDate: String {
+        get { defaults.string(forKey: DK.dailyLastPlayedDate) ?? "" }
+        set { defaults.set(newValue, forKey: DK.dailyLastPlayedDate) }
+    }
+
+    var dailyWinPercent: Int {
+        guard dailyPlayed > 0 else { return 0 }
+        return Int(round(Double(dailyWins) / Double(dailyPlayed) * 100))
+    }
+
+    func recordDailyResult(solved: Bool, attempts: Int, dateKey: String) {
+        dailyPlayed += 1
+
+        // Streak logic — must be consecutive calendar days
+        let yesterday = {
+            let cal = Calendar.current
+            let today = cal.startOfDay(for: Date())
+            let yest = cal.date(byAdding: .day, value: -1, to: today)!
+            let fmt = DateFormatter()
+            fmt.dateFormat = "yyyy-MM-dd"
+            return fmt.string(from: yest)
+        }()
+
+        if solved {
+            dailyWins += 1
+            var dist = dailyGuessDistribution
+            let idx = min(max(attempts - 1, 0), 4)
+            dist[idx] += 1
+            dailyGuessDistribution = dist
+
+            if dailyLastPlayedDate == yesterday || dailyLastPlayedDate.isEmpty {
+                dailyCurrentStreak += 1
+            } else {
+                dailyCurrentStreak = 1
+            }
+            if dailyCurrentStreak > dailyMaxStreak {
+                dailyMaxStreak = dailyCurrentStreak
+            }
+        } else {
+            dailyCurrentStreak = 0
+        }
+
+        dailyLastPlayedDate = dateKey
+    }
+
     // MARK: - Achievements (35 total, 7x5 grid)
 
     struct Achievement: Identifiable {

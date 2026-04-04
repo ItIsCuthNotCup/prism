@@ -131,26 +131,32 @@ struct DailyPuzzleView: View {
                     failedOverlay
                 }
 
-                // Top toast
+                // Bottom toast
                 VStack {
+                    Spacer()
                     if let toastText = puzzle.toastText {
                         topToastView(text: toastText)
                             .padding(.horizontal, contentPadding + 4)
-                            .padding(.top, 8)
+                            .padding(.bottom, 32)
                             .transition(
                                 .asymmetric(
-                                    insertion: .move(edge: .top).combined(with: .opacity),
-                                    removal: .move(edge: .top).combined(with: .opacity)
+                                    insertion: .move(edge: .bottom).combined(with: .opacity),
+                                    removal: .move(edge: .bottom).combined(with: .opacity)
                                 )
                             )
                     }
-                    Spacer()
                 }
                 .animation(.spring(response: 0.35, dampingFraction: 0.7), value: puzzle.toastText)
                 .allowsHitTesting(false)
             }
         }
         .preferredColorScheme(.light)
+        .onAppear {
+            MusicManager.shared.setGameplayVolume()
+        }
+        .onDisappear {
+            MusicManager.shared.setMenuVolume()
+        }
         .onChange(of: puzzle.toastText) { _, newText in
             toastDismissWork?.cancel()
             if newText != nil {
@@ -160,7 +166,7 @@ struct DailyPuzzleView: View {
                     }
                 }
                 toastDismissWork = work
-                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0, execute: work)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5.0, execute: work)
             }
         }
         .onChange(of: puzzle.attempts.count) { oldVal, newVal in
@@ -526,40 +532,25 @@ struct DailyPuzzleView: View {
 
     private var dailyHowToPlay: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                Spacer()
-
-                VStack(alignment: .leading, spacing: 16) {
-                    howToPlayRow(
-                        icon: "target",
-                        text: "Match the target color at the top"
-                    )
-                    howToPlayRow(
-                        icon: "hand.tap",
-                        text: "Tap 2 tiles — they mix into a new color"
-                    )
-                    howToPlayRow(
-                        icon: "plus.circle",
-                        text: "Then tap a 3rd tile to mix with the result"
-                    )
-                    howToPlayRow(
-                        icon: "checkmark.circle",
-                        text: "If the final mix matches the target, you win"
-                    )
-                    howToPlayRow(
-                        icon: "heart",
-                        text: "You have 5 attempts"
-                    )
-                    howToPlayRow(
-                        icon: "calendar",
-                        text: "A new puzzle every day"
-                    )
+            List {
+                Section {
+                    dailyRulesRow(icon: "target", color: Color(hex: 0xE63946),
+                                  text: "Match the target color at the top")
+                    dailyRulesRow(icon: "hand.tap.fill", color: Color(hex: 0xD4724A),
+                                  text: "Tap 2 tiles — they mix into a new color")
+                    dailyRulesRow(icon: "plus.circle.fill", color: Color(hex: 0xE8876B),
+                                  text: "Then tap a 3rd tile to mix with the result")
+                    dailyRulesRow(icon: "checkmark.circle.fill", color: Color(hex: 0x4CAF50),
+                                  text: "If the final mix matches the target, you win")
+                    dailyRulesRow(icon: "heart.fill", color: Color(hex: 0xFF5E6C),
+                                  text: "You have 5 attempts")
+                    dailyRulesRow(icon: "calendar", color: Color(hex: 0xA080E0),
+                                  text: "A new puzzle every day")
+                } header: {
+                    Text("How to Play")
                 }
-                .padding(.horizontal, 32)
-
-                Spacer()
             }
-            .navigationTitle("How to Play")
+            .navigationTitle("Hue of the Day")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -567,21 +558,21 @@ struct DailyPuzzleView: View {
                 }
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.large])
         .preferredColorScheme(.light)
     }
 
-    private func howToPlayRow(icon: String, text: String) -> some View {
-        HStack(spacing: 14) {
+    private func dailyRulesRow(icon: String, color: Color, text: String) -> some View {
+        HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 16))
-                .foregroundStyle(Color(hex: 0x8D99AE))
-                .frame(width: 28)
+                .font(.system(size: 15))
+                .foregroundStyle(color)
+                .frame(width: 24)
             Text(text)
-                .font(.system(size: 14, weight: .regular, design: .serif))
-                .foregroundStyle(Color(hex: 0x4A4A5A))
-                .fixedSize(horizontal: false, vertical: true)
+                .font(.system(size: 14))
+                .foregroundStyle(Color(hex: 0x3A3A4A))
         }
+        .padding(.vertical, 2)
     }
 
     // MARK: - Share
