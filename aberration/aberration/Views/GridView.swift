@@ -7,6 +7,11 @@ struct GridView: View {
     private let spacing: CGFloat = 5
     private let inset: CGFloat = 6
 
+    /// Tracks which cell indices have completed their entry animation
+    @State private var enteredCells: Set<Int> = []
+    /// Last observed roundEntryTrigger — detects new rounds
+    @State private var lastEntryTrigger: Int = -1
+
     var body: some View {
         let columns = Array(
             repeating: GridItem(.fixed(cellSize), spacing: spacing),
@@ -21,12 +26,33 @@ struct GridView: View {
 
                 cellView(at: pos)
                     .frame(width: cellSize, height: cellSize)
+                    .scaleEffect(enteredCells.contains(index) ? 1.0 : 0.01)
+                    .opacity(enteredCells.contains(index) ? 1.0 : 0.0)
                     .onTapGesture {
                         game.selectTile(at: pos)
                     }
             }
         }
         .padding(inset)
+        .onChange(of: game.roundEntryTrigger) { _, newValue in
+            // New round: reset all cells, then stagger them in
+            enteredCells = []
+            let total = GridPosition.gridSize * GridPosition.gridSize
+            for i in 0..<total {
+                let delay = Double(i) * 0.018  // 18ms stagger per cell
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) {
+                        _ = enteredCells.insert(i)
+                    }
+                }
+            }
+        }
+        .onAppear {
+            // Initial load: show all cells immediately (no cascade on first appear)
+            let total = GridPosition.gridSize * GridPosition.gridSize
+            enteredCells = Set(0..<total)
+            lastEntryTrigger = game.roundEntryTrigger
+        }
     }
 
     // MARK: - Glass Container

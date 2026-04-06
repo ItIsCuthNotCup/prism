@@ -40,6 +40,8 @@ class GameState {
     var tapPulseID: Int = 0
     /// Increments each new game — triggers background pattern re-roll
     var gameID: Int = 0
+    /// Increments each new round — drives tile entry cascade animation
+    var roundEntryTrigger: Int = 0
 
     // MARK: - Discovered Colors (for background painting)
     /// Colors the player has created through blending this session.
@@ -1044,6 +1046,9 @@ class GameState {
 
         // Start round timer (round 15+)
         startTimer()
+
+        // Trigger tile entry cascade animation
+        roundEntryTrigger += 1
     }
 
     /// Spawn ingredients for the current target. Returns false if game over (no room).
@@ -1407,6 +1412,7 @@ class GameState {
         floatingPointsMultiplier = 1
         tunnelDepth = 0
         discoveredColorIndices = [0, 16, 32]  // reset to primaries
+        roundEntryTrigger = 0
         gameID += 1
         totalBlendsThisGame = 0
         totalRoundsCompletedThisGame = 0

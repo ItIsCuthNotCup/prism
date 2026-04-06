@@ -15,11 +15,20 @@ struct TileView: View {
     @State private var appeared = true
     @State private var hintGlow = false
 
-    private var currentScale: CGFloat {
+    // Squash-and-stretch: separate X/Y scales for organic feel
+    private var scaleX: CGFloat {
         if isBlending { return 0.3 }
-        if isPopping { return 1.18 }
+        if isPopping { return 0.92 }      // squish horizontally when popping up
+        if isBlendResult { return 1.08 }   // stretch wide on result appear
         if isMatched { return 1.12 }
-        if isBlendResult { return 1.06 }
+        return 1.0
+    }
+
+    private var scaleY: CGFloat {
+        if isBlending { return 0.3 }
+        if isPopping { return 1.22 }      // stretch tall when popping up
+        if isBlendResult { return 0.96 }   // squish vertically on result
+        if isMatched { return 1.12 }
         return 1.0
     }
 
@@ -106,7 +115,7 @@ struct TileView: View {
                         lineWidth: isSelected ? 2.5 : (isHinted ? 2.5 : 0.5)
                     )
             )
-            .scaleEffect(currentScale)
+            .scaleEffect(x: scaleX, y: scaleY)
             .opacity(isBlending ? 0.5 : 1.0)
             .shadow(
                 color: isHinted ? color.color.opacity(hintGlow ? 0.6 : 0.1) :
@@ -131,10 +140,10 @@ struct TileView: View {
                     }
                 }
             }
-            .animation(.spring(response: 0.15, dampingFraction: 0.5), value: isPopping)
+            .animation(.spring(response: 0.18, dampingFraction: 0.45), value: isPopping)
             .animation(.easeIn(duration: 0.12), value: isBlending)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isSelected)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isMatched)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isBlendResult)
+            .animation(.spring(response: 0.25, dampingFraction: 0.65), value: isSelected)
+            .animation(.spring(response: 0.25, dampingFraction: 0.65), value: isMatched)
+            .animation(.spring(response: 0.30, dampingFraction: 0.55), value: isBlendResult)
     }
 }

@@ -23,7 +23,8 @@ struct PrismGameView: View {
     @State private var activeCelebration: CelebrationType? = nil
     @State private var glowPulse = false
     @State private var aberrationPhase: Double = 0
-    @State private var gameOverShake: CGFloat = 0
+    @State private var cameraZoom: CGFloat = 1.0
+    @State private var breathScale: CGFloat = 1.0
     /// Countdown: celebration triggers when this hits 0, then resets to a new random 1–6.
     @State private var roundsUntilCelebration: Int = Int.random(in: 1...6)
     /// Cycles through celebration types so they alternate (no long streaks of the same one).
@@ -207,7 +208,7 @@ struct PrismGameView: View {
                 .padding(.top, 4)
                 .frame(maxWidth: maxContentWidth)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .offset(x: gameOverShake)
+                .scaleEffect(cameraZoom * breathScale)
 
                 // Score feedback: bonus label → merges into total → fades
                 FloatingPointsView(
@@ -358,23 +359,27 @@ struct PrismGameView: View {
                 nextCelebrationIndex = (nextCelebrationIndex + 1) % types.count
                 roundsUntilCelebration = Int.random(in: 1...6)
             }
+            // Camera zoom pulse on round complete
+            withAnimation(.spring(response: 0.15, dampingFraction: 0.5)) {
+                cameraZoom = 1.01
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                    cameraZoom = 1.0
+                }
+            }
         }
         .onChange(of: game.isGameOver) { _, isOver in
             if isOver {
                 // Dismiss any active toast
                 withAnimation(.easeOut(duration: 0.2)) { game.toastText = nil }
-                // Screen shake feedback on game over
-                withAnimation(.spring(response: 0.08, dampingFraction: 0.3)) {
-                    gameOverShake = 8
+                // Gentle zoom pulse on game over (tiny — not jarring)
+                withAnimation(.spring(response: 0.15, dampingFraction: 0.5)) {
+                    cameraZoom = 1.012
                 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    withAnimation(.spring(response: 0.08, dampingFraction: 0.3)) {
-                        gameOverShake = -6
-                    }
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                    withAnimation(.spring(response: 0.1, dampingFraction: 0.5)) {
-                        gameOverShake = 0
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        cameraZoom = 1.0
                     }
                 }
             }
@@ -390,6 +395,27 @@ struct PrismGameView: View {
                 }
                 toastDismissWork = work
                 DispatchQueue.main.asyncAfter(deadline: .now() + 3.0, execute: work)
+            }
+        }
+        // Camera zoom pulse on blend (tiny — barely perceptible)
+        .onChange(of: game.lastBlendPosition) { _, newPos in
+            guard newPos != nil else { return }
+            withAnimation(.spring(response: 0.12, dampingFraction: 0.5)) {
+                cameraZoom = 1.006
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    cameraZoom = 1.0
+                }
+            }
+        }
+        // Ambient breathing — very subtle idle pulse
+        .onAppear {
+            withAnimation(
+                .easeInOut(duration: 4.0)
+                .repeatForever(autoreverses: true)
+            ) {
+                breathScale = 1.003
             }
         }
         .sheet(isPresented: $showSettings) {
