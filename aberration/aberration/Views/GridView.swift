@@ -39,9 +39,9 @@ struct GridView: View {
             enteredCells = []
             let total = GridPosition.gridSize * GridPosition.gridSize
             for i in 0..<total {
-                let delay = Double(i) * 0.018  // 18ms stagger per cell
+                let delay = Double(i) * 0.008  // 8ms stagger per cell — fast wave
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.65)) {
                         _ = enteredCells.insert(i)
                     }
                 }

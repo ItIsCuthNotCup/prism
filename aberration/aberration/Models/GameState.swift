@@ -458,12 +458,210 @@ class GameState {
         return min(6 + (round - 30) / 10, 8)
     }
 
+    // MARK: - Save / Restore
+
+    private struct SaveData: Codable {
+        let grid: [[Int?]]               // wheelIndex or nil
+        let round: Int
+        let score: Int
+        let lives: Int
+        let targetIndex: Int?             // wheelIndex
+        let pendingTargetIndices: [Int]
+        let totalTargetsThisRound: Int
+        let discoveredColorIndices: [Int]
+        let tunnelDepth: Int
+        let gameID: Int
+        let cleanRoundStreak: Int
+        let roundsWithoutDying: Int
+        let totalBlendsThisGame: Int
+        let totalRoundsCompletedThisGame: Int
+        let goldenPositions: [[Int]]      // [[row, col], ...]
+        let multiplierRoundsLeft: Int
+        let multiplierValue: Int
+        let blendsThisTarget: Int
+        let parForCurrentTarget: Int
+    }
+
+    private static let saveKey = "blent_saved_game"
+
+    func saveGame() {
+        // Don't save if game is over — let them start fresh
+        guard !isGameOver else {
+            UserDefaults.standard.removeObject(forKey: Self.saveKey)
+            return
+        }
+        // Don't save round 0 (pre-game)
+        guard round > 0 else { return }
+
+        let data = SaveData(
+            grid: grid.map { row in row.map { $0?.wheelIndex } },
+            round: round,
+            score: score,
+            lives: lives,
+            targetIndex: targetColor?.wheelIndex,
+            pendingTargetIndices: pendingTargets.map(\.wheelIndex),
+            totalTargetsThisRound: totalTargetsThisRound,
+            discoveredColorIndices: Array(discoveredColorIndices),
+            tunnelDepth: tunnelDepth,
+            gameID: gameID,
+            cleanRoundStreak: cleanRoundStreak,
+            roundsWithoutDying: roundsWithoutDying,
+            totalBlendsThisGame: totalBlendsThisGame,
+            totalRoundsCompletedThisGame: totalRoundsCompletedThisGame,
+            goldenPositions: goldenPositions.map { [$0.row, $0.col] },
+            multiplierRoundsLeft: multiplierRoundsLeft,
+            multiplierValue: multiplierValue,
+            blendsThisTarget: blendsThisTarget,
+            parForCurrentTarget: parForCurrentTarget
+        )
+        if let encoded = try? JSONEncoder().encode(data) {
+            UserDefaults.standard.set(encoded, forKey: Self.saveKey)
+        }
+    }
+
+    /// Returns true if a saved game was successfully restored.
+    @discardableResult
+    private func restoreGame() -> Bool {
+        guard let data = UserDefaults.standard.data(forKey: Self.saveKey),
+              let save = try? JSONDecoder().decode(SaveData.self, from: data) else {
+            return false
+        }
+
+        // Restore grid
+        for r in 0..<gridSize {
+            for c in 0..<gridSize {
+                if let idx = save.grid[r][c] {
+                    grid[r][c] = PrismColor.byIndex(idx)
+                } else {
+                    grid[r][c] = nil
+                }
+            }
+        }
+
+        round = save.round
+        score = save.score
+        lives = save.lives
+        targetColor = save.targetIndex.map { PrismColor.byIndex($0) }
+        pendingTargets = save.pendingTargetIndices.map { PrismColor.byIndex($0) }
+        totalTargetsThisRound = save.totalTargetsThisRound
+        discoveredColorIndices = Set(save.discoveredColorIndices)
+        tunnelDepth = save.tunnelDepth
+        gameID = save.gameID
+        cleanRoundStreak = save.cleanRoundStreak
+        roundsWithoutDying = save.roundsWithoutDying
+        totalBlendsThisGame = save.totalBlendsThisGame
+        totalRoundsCompletedThisGame = save.totalRoundsCompletedThisGame
+        goldenPositions = Set(save.goldenPositions.compactMap {
+            guard $0.count == 2 else { return nil }
+            return GridPosition(row: $0[0], col: $0[1])
+        })
+        multiplierRoundsLeft = save.multiplierRoundsLeft
+        multiplierValue = save.multiplierValue
+        blendsThisTarget = save.blendsThisTarget
+        parForCurrentTarget = save.parForCurrentTarget
+
+        // Clear the save so we don't restore stale data on next crash
+        // (it will be re-saved on the next action)
+        return true
+    }
+
+    /// Clear saved game data (called on game over and new game)
+    func clearSave() {
+        UserDefaults.standard.removeObject(forKey: Self.saveKey)
+    }
+
+    // MARK: - Named Saves
+
+    /// Export the current game state as raw JSON Data (for SaveManager).
+    func exportGameData() -> Data? {
+        guard !isGameOver, round > 0 else { return nil }
+        let data = SaveData(
+            grid: grid.map { row in row.map { $0?.wheelIndex } },
+            round: round,
+            score: score,
+            lives: lives,
+            targetIndex: targetColor?.wheelIndex,
+            pendingTargetIndices: pendingTargets.map(\.wheelIndex),
+            totalTargetsThisRound: totalTargetsThisRound,
+            discoveredColorIndices: Array(discoveredColorIndices),
+            tunnelDepth: tunnelDepth,
+            gameID: gameID,
+            cleanRoundStreak: cleanRoundStreak,
+            roundsWithoutDying: roundsWithoutDying,
+            totalBlendsThisGame: totalBlendsThisGame,
+            totalRoundsCompletedThisGame: totalRoundsCompletedThisGame,
+            goldenPositions: goldenPositions.map { [$0.row, $0.col] },
+            multiplierRoundsLeft: multiplierRoundsLeft,
+            multiplierValue: multiplierValue,
+            blendsThisTarget: blendsThisTarget,
+            parForCurrentTarget: parForCurrentTarget
+        )
+        return try? JSONEncoder().encode(data)
+    }
+
+    /// Save current game with a player-chosen name.
+    func saveGameNamed(_ name: String) {
+        guard let gameData = exportGameData() else { return }
+        SaveManager.shared.save(
+            name: name,
+            score: score,
+            round: round,
+            lives: lives,
+            gameData: gameData
+        )
+    }
+
+    /// Restore game state from a named save's raw JSON data.
+    func loadFromSaveData(_ data: Data) {
+        guard let save = try? JSONDecoder().decode(SaveData.self, from: data) else { return }
+
+        // Restore grid
+        for r in 0..<gridSize {
+            for c in 0..<gridSize {
+                if let idx = save.grid[r][c] {
+                    grid[r][c] = PrismColor.byIndex(idx)
+                } else {
+                    grid[r][c] = nil
+                }
+            }
+        }
+
+        round = save.round
+        score = save.score
+        lives = save.lives
+        targetColor = save.targetIndex.map { PrismColor.byIndex($0) }
+        pendingTargets = save.pendingTargetIndices.map { PrismColor.byIndex($0) }
+        totalTargetsThisRound = save.totalTargetsThisRound
+        discoveredColorIndices = Set(save.discoveredColorIndices)
+        tunnelDepth = save.tunnelDepth
+        gameID = save.gameID
+        cleanRoundStreak = save.cleanRoundStreak
+        roundsWithoutDying = save.roundsWithoutDying
+        totalBlendsThisGame = save.totalBlendsThisGame
+        totalRoundsCompletedThisGame = save.totalRoundsCompletedThisGame
+        goldenPositions = Set(save.goldenPositions.compactMap {
+            guard $0.count == 2 else { return nil }
+            return GridPosition(row: $0[0], col: $0[1])
+        })
+        multiplierRoundsLeft = save.multiplierRoundsLeft
+        multiplierValue = save.multiplierValue
+        blendsThisTarget = save.blendsThisTarget
+        parForCurrentTarget = save.parForCurrentTarget
+
+        // Reset transient state
+        selectedPosition = nil
+        isProcessing = false
+        isGameOver = false
+    }
+
     // MARK: - Init
 
     init() {
         grid = Array(repeating: Array(repeating: nil, count: GridPosition.gridSize),
                      count: GridPosition.gridSize)
-        startNewRound()
+        if !restoreGame() {
+            startNewRound()
+        }
     }
 
     // MARK: - Blend Preview
@@ -733,6 +931,7 @@ class GameState {
 
                 startNewRound()
                 isProcessing = false
+                saveGame()
             } else {
                 // Near-miss proximity feedback
                 if let target = targetColor {
@@ -754,6 +953,7 @@ class GameState {
                 lastBlendPosition = nil
                 checkGameOver()
                 isProcessing = false
+                saveGame()
 
                 // 1/3 chance: remind player a combo still exists
                 if !isGameOver && Int.random(in: 0..<3) == 0 {
@@ -1070,6 +1270,7 @@ class GameState {
             updateHighScore()
             recordDeath()
             isGameOver = true
+            clearSave()
             captureNewAchievements {
                 StatsManager.shared.recordGameOver(round: round, blends: totalBlendsThisGame, score: score, diedToPoison: false)
             }
@@ -1184,6 +1385,7 @@ class GameState {
             updateHighScore()
             recordDeath()
             isGameOver = true
+            clearSave()
             captureNewAchievements {
                 StatsManager.shared.recordGameOver(round: round, blends: totalBlendsThisGame, score: score, diedToPoison: false)
             }
@@ -1346,6 +1548,7 @@ class GameState {
     func stopTimer() { /* timer removed */ }
 
     func newGame() {
+        clearSave()
         stopTimer()
         grid = Array(repeating: Array(repeating: nil, count: gridSize), count: gridSize)
         round = 0

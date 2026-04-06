@@ -19,6 +19,8 @@ struct PrismGameView: View {
     @State private var shareImage: UIImage? = nil
     @State private var showRewardOffer = false
     @State private var showRewardChest = false
+    @State private var showSaveDialog = false
+    @State private var saveNameInput = ""
     @State private var pendingReward: GameState.RewardType? = nil
     @State private var activeCelebration: CelebrationType? = nil
     @State private var glowPulse = false
@@ -121,7 +123,7 @@ struct PrismGameView: View {
                                   .tracking(1.5)
                                   .frame(maxWidth: .infinity)
 
-                              // Selection hint (formula area)
+                              // Selection hint (formula area) — fixed frame, opacity-only transitions
                               ZStack {
                                   if let sel = game.selectedColor {
                                       HStack(spacing: 5) {
@@ -132,20 +134,23 @@ struct PrismGameView: View {
                                               .font(.system(size: 11, weight: .medium, design: .rounded))
                                               .foregroundStyle(Color(hex: 0xAAAAAA))
                                       }
+                                      .transition(.opacity)
                                   } else if game.showMergeHint && game.tutorialCoachText == nil {
                                       Text("Tap two colors to mix")
                                           .font(.system(size: 11, weight: .medium, design: .rounded))
                                           .foregroundStyle(Color(hex: 0x999999))
                                           .tracking(0.5)
+                                          .transition(.opacity)
+                                  } else {
+                                      Color.clear
                                   }
                               }
                               .frame(height: 16)
-                              .animation(.easeInOut(duration: 0.2), value: game.selectedPosition)
+                              .animation(.easeInOut(duration: 0.15), value: game.selectedPosition)
                           }
                           .padding(.bottom, 6)
                           .id(target.wheelIndex)
-                          .transition(.scale.combined(with: .opacity))
-                          .animation(.spring(response: 0.4), value: target.wheelIndex)
+                          .transition(.opacity)
                       }
 
                       // Thin separator
@@ -735,6 +740,64 @@ struct PrismGameView: View {
                         .background(settingsCardBackground)
                     }
 
+                    // ── Saved Games ──
+                    VStack(spacing: 0) {
+                        settingsSectionHeader("Saved Games")
+
+                        VStack(spacing: 0) {
+                            // Save Current Game
+                            Button {
+                                saveNameInput = "Round \(game.round)"
+                                showSaveDialog = true
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "square.and.arrow.down.fill")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundStyle(Color(hex: 0x4CAF50))
+                                        .frame(width: 24)
+                                    Text("Save Current Game")
+                                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                                        .foregroundStyle(Color(hex: 0x3A3A4A))
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundStyle(Color(hex: 0xCCCCCC))
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                            }
+                            .disabled(game.isGameOver || game.round < 1)
+                            .opacity(game.isGameOver || game.round < 1 ? 0.4 : 1)
+
+                            settingsDivider()
+
+                            // Load Saved Game
+                            NavigationLink {
+                                SavedGamesView(isPresented: $showSettings) { data in
+                                    game.loadFromSaveData(data)
+                                    showSettings = false
+                                }
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "folder.fill")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundStyle(Color(hex: 0x2196F3))
+                                        .frame(width: 24)
+                                    Text("Load Saved Game")
+                                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                                        .foregroundStyle(Color(hex: 0x3A3A4A))
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundStyle(Color(hex: 0xCCCCCC))
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                            }
+                        }
+                        .background(settingsCardBackground)
+                    }
+
                     // ── How to Play ──
                     VStack(spacing: 0) {
                         settingsSectionHeader("How to Play")
@@ -777,6 +840,18 @@ struct PrismGameView: View {
         }
         .presentationDetents([.large])
         .preferredColorScheme(.light)
+        .alert("Save Game", isPresented: $showSaveDialog) {
+            TextField("Save name", text: $saveNameInput)
+            Button("Cancel", role: .cancel) { }
+            Button("Save") {
+                let name = saveNameInput.trimmingCharacters(in: .whitespaces)
+                if !name.isEmpty {
+                    game.saveGameNamed(name)
+                }
+            }
+        } message: {
+            Text("Name this save so you can find it later.")
+        }
     }
 
     private func settingsRulesRow(icon: String, color: Color, text: String) -> some View {
