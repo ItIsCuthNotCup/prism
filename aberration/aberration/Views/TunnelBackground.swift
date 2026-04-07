@@ -214,16 +214,18 @@ struct TunnelBackground: View {
             let config = PatternConfig.generate(seed: patternSeed, depth: depth)
 
             // --- Layer 1: Grey dot grid (graph paper, always present) ---
-            let greyAlpha = max(0.08, 0.30 - CGFloat(depth) * 0.012)
+            let isDark = AppTheme.shared.isDark
+            let greyAlpha = max(isDark ? 0.04 : 0.08, (isDark ? 0.15 : 0.30) - CGFloat(depth) * 0.012)
             let dotSpacing: CGFloat = 20.0
             let dotRadius: CGFloat = 1.2
+            let dotBrightness: CGFloat = isDark ? 0.65 : 0.35
 
             for gx in stride(from: dotSpacing * 0.5, to: size.width, by: dotSpacing) {
                 for gy in stride(from: dotSpacing * 0.5, to: size.height, by: dotSpacing) {
                     let rect = CGRect(x: gx - dotRadius, y: gy - dotRadius,
                                       width: dotRadius * 2, height: dotRadius * 2)
                     context.fill(Path(ellipseIn: rect),
-                                 with: .color(Color(white: 0.35, opacity: greyAlpha)))
+                                 with: .color(Color(white: dotBrightness, opacity: greyAlpha)))
                 }
             }
 

@@ -15,19 +15,21 @@ struct SavedGamesView: View {
     @State private var deleteTarget: SaveSlot? = nil
     @State private var showDeleteConfirm = false
 
+    private var theme: AppTheme { AppTheme.shared }
+
     var body: some View {
         Group {
             if saves.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "tray")
                         .font(.system(size: 36))
-                        .foregroundStyle(Color(hex: 0xBBBBBB))
+                        .foregroundStyle(theme.textTertiary)
                     Text("No saved games yet")
                         .font(.system(size: 15, weight: .medium, design: .rounded))
-                        .foregroundStyle(Color(hex: 0x999999))
+                        .foregroundStyle(theme.textMuted)
                     Text("Save your progress from the Settings menu")
                         .font(.system(size: 13, weight: .regular, design: .rounded))
-                        .foregroundStyle(Color(hex: 0xBBBBBB))
+                        .foregroundStyle(theme.textTertiary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -43,7 +45,7 @@ struct SavedGamesView: View {
                 }
             }
         }
-        .background(Color(hex: 0xF5F5F7))
+        .background(theme.screenBg)
         .navigationTitle("Saved Games")
         .navigationBarTitleDisplayMode(.inline)
         .alert("Delete Save?", isPresented: $showDeleteConfirm) {
@@ -84,7 +86,7 @@ struct SavedGamesView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(slot.name)
                         .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color(hex: 0x3A3A4A))
+                        .foregroundStyle(theme.textPrimaryAlt)
                         .lineLimit(1)
 
                     HStack(spacing: 10) {
@@ -93,11 +95,11 @@ struct SavedGamesView: View {
                         Label("\(slot.lives)", systemImage: "heart.fill")
                     }
                     .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(Color(hex: 0x888888))
+                    .foregroundStyle(theme.textSecondary)
 
                     Text(slot.date.formatted(date: .abbreviated, time: .shortened))
                         .font(.system(size: 11, weight: .regular, design: .rounded))
-                        .foregroundStyle(Color(hex: 0xAAAAAA))
+                        .foregroundStyle(theme.textTertiary)
                 }
 
                 Spacer()
@@ -118,8 +120,8 @@ struct SavedGamesView: View {
             .padding(.vertical, 14)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(.white)
-                    .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
+                    .fill(theme.cardFill)
+                    .shadow(color: .black.opacity(theme.shadowOpacity), radius: 6, y: 2)
             )
         }
         .buttonStyle(.plain)

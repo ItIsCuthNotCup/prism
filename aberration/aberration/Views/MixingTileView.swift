@@ -22,6 +22,7 @@ struct MixingTileView: View {
     let size: CGFloat
 
     private let cornerRadius: CGFloat = 12
+    private var theme: AppTheme { AppTheme.shared }
 
     // MARK: - Per-tile deterministic RNG
 
@@ -59,8 +60,8 @@ struct MixingTileView: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color(hex: 0xF0F0F4).opacity(0.6),
-                            Color(hex: 0xE8E8ED).opacity(0.6)
+                            theme.mixGlassTop.opacity(0.6),
+                            theme.mixGlassBottom.opacity(0.6)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -69,14 +70,14 @@ struct MixingTileView: View {
             RoundedRectangle(cornerRadius: cornerRadius)
                 .strokeBorder(
                     LinearGradient(
-                        colors: [Color.white.opacity(0.5), Color.white.opacity(0.1)],
+                        colors: [Color.white.opacity(theme.isDark ? 0.15 : 0.5), Color.white.opacity(theme.isDark ? 0.05 : 0.1)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
                     lineWidth: 0.5
                 )
             RoundedRectangle(cornerRadius: cornerRadius)
-                .strokeBorder(Color(hex: 0xCCCCD4).opacity(0.5),
+                .strokeBorder(theme.mixGlassDash.opacity(0.5),
                               style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
         }
         .frame(width: size, height: size)
@@ -96,7 +97,7 @@ struct MixingTileView: View {
             RoundedRectangle(cornerRadius: cornerRadius)
                 .fill(
                     LinearGradient(
-                        colors: [Color(hex: 0xF2F2F6), Color(hex: 0xE6E6EB)],
+                        colors: [theme.mixTileBgTop, theme.mixTileBgBottom],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -189,9 +190,9 @@ struct MixingTileView: View {
             // Glass specular
             LinearGradient(
                 colors: [
-                    .white.opacity(0.38),
-                    .white.opacity(0.10),
-                    .white.opacity(0.02),
+                    .white.opacity(theme.specularOpacity),
+                    .white.opacity(theme.isDark ? 0.04 : 0.10),
+                    .white.opacity(theme.isDark ? 0.01 : 0.02),
                     .clear
                 ],
                 startPoint: .topLeading,

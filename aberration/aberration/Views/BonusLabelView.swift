@@ -38,7 +38,7 @@ struct BonusLabelView: View {
                         .font(.system(size: 18, weight: .black, design: .rounded))
                 }
             }
-            .foregroundStyle(Color(hex: 0x2A2A2A))
+            .foregroundStyle(AppTheme.shared.textPrimary)
             .shadow(color: bonusColor.opacity(glowOpacity * 0.5), radius: 8)
             .shadow(color: .white, radius: 4)
             .offset(x: shakeX, y: offsetY)

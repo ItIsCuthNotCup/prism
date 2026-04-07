@@ -11,11 +11,16 @@ import SwiftUI
 struct AwardsContainerView: View {
     @State private var selectedPage = 0
     @Environment(\.dismiss) private var dismiss
+    private var theme: AppTheme { AppTheme.shared }
 
     var body: some View {
         ZStack {
-            Color(hex: 0xF5F5F7)
-                .ignoresSafeArea()
+            LinearGradient(
+                colors: [theme.screenBgTop, theme.screenBgBottom],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 // Top bar with page picker
@@ -48,7 +53,6 @@ struct AwardsContainerView: View {
                 .tabViewStyle(.page(indexDisplayMode: .never))
             }
         }
-        .preferredColorScheme(.light)
     }
 
     private var pagePicker: some View {
@@ -58,7 +62,7 @@ struct AwardsContainerView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(Color(hex: 0xEEEEF0))
+                .fill(theme.isDark ? Color(hex: 0x2A2A32) : Color(hex: 0xEEEEF0))
         )
     }
 
@@ -70,15 +74,15 @@ struct AwardsContainerView: View {
         } label: {
             Text(title)
                 .font(.system(size: 13, weight: selectedPage == index ? .bold : .medium, design: .rounded))
-                .foregroundStyle(selectedPage == index ? Color(hex: 0x2A2A2A) : Color(hex: 0x999999))
+                .foregroundStyle(selectedPage == index ? theme.textPrimary : theme.textMuted)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 8)
                 .background(
                     Group {
                         if selectedPage == index {
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(.white)
-                                .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
+                                .fill(theme.cardFill)
+                                .shadow(color: .black.opacity(theme.shadowOpacity), radius: 4, y: 2)
                         }
                     }
                 )
@@ -93,6 +97,7 @@ struct AchievementsPageView: View {
     private let spacing: CGFloat = 6
     private let achievements = StatsManager.allAchievements
     private let unlocked = StatsManager.shared.unlockedBadges
+    private var theme: AppTheme { AppTheme.shared }
 
     @State private var selectedAchievement: StatsManager.Achievement? = nil
 
@@ -112,7 +117,7 @@ struct AchievementsPageView: View {
 
             Text("ACHIEVEMENTS")
                 .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(Color(hex: 0xAAAAAA))
+                .foregroundStyle(theme.textTertiary)
                 .tracking(4)
 
             // Scrollable 5-column grid
@@ -220,7 +225,7 @@ struct AchievementsPageView: View {
                 RoundedRectangle(cornerRadius: size * 0.18)
                     .fill(
                         LinearGradient(
-                            colors: [Color(hex: 0xEDEDEF), Color(hex: 0xE0E0E2)],
+                            colors: [theme.lockedBgTop, theme.lockedBgBottom],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -229,7 +234,7 @@ struct AchievementsPageView: View {
                 RoundedRectangle(cornerRadius: size * 0.18)
                     .fill(
                         LinearGradient(
-                            colors: [.white.opacity(0.3), .clear],
+                            colors: [.white.opacity(theme.isDark ? 0.1 : 0.3), .clear],
                             startPoint: .topLeading,
                             endPoint: .center
                         )
@@ -237,13 +242,13 @@ struct AchievementsPageView: View {
 
                 RoundedRectangle(cornerRadius: size * 0.18)
                     .strokeBorder(
-                        isSelected ? Color(hex: 0x999999) : .white.opacity(0.3),
+                        isSelected ? theme.textMuted : .white.opacity(theme.isDark ? 0.1 : 0.3),
                         lineWidth: isSelected ? 2.5 : 0.5
                     )
 
                 Image(systemName: "lock.fill")
                     .font(.system(size: size * 0.24, weight: .medium))
-                    .foregroundStyle(Color(hex: 0xCCCCCC))
+                    .foregroundStyle(theme.textQuaternary)
             }
         }
         .frame(width: size, height: size)
@@ -284,19 +289,19 @@ struct AchievementsPageView: View {
                     .font(.system(size: 15, weight: .black, design: .rounded))
                     .foregroundStyle(
                         isUnlocked
-                            ? Color(hue: achievement.hue, saturation: 0.7, brightness: 0.4)
-                            : Color(hex: 0x999999)
+                            ? Color(hue: achievement.hue, saturation: theme.isDark ? 0.5 : 0.7, brightness: theme.isDark ? 0.8 : 0.4)
+                            : theme.textMuted
                     )
                     .tracking(2)
 
                 Text(achievement.description)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color(hex: 0x777777))
+                    .foregroundStyle(theme.textSecondary)
 
                 if !isUnlocked {
                     Text("LOCKED")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Color(hex: 0xBBBBBB))
+                        .foregroundStyle(theme.textTertiary)
                         .tracking(3)
                         .padding(.top, 2)
                 }
@@ -307,13 +312,13 @@ struct AchievementsPageView: View {
         .background(
             ZStack {
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(.white.opacity(0.85))
+                    .fill(theme.cardFill.opacity(theme.cardFillOpacity))
                 RoundedRectangle(cornerRadius: 16)
                     .fill(.ultraThinMaterial)
                 RoundedRectangle(cornerRadius: 16)
-                    .strokeBorder(.white.opacity(0.6), lineWidth: 0.5)
+                    .strokeBorder(.white.opacity(theme.isDark ? 0.15 : 0.6), lineWidth: 0.5)
             }
-            .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
+            .shadow(color: .black.opacity(theme.shadowOpacity), radius: 12, y: 4)
         )
         .padding(.horizontal, 20)
     }
@@ -336,10 +341,10 @@ struct AchievementsPageView: View {
         VStack(spacing: 2) {
             Text(value)
                 .font(.system(size: 16, weight: .bold, design: .rounded))
-                .foregroundStyle(Color(hex: 0x3A3A4A))
+                .foregroundStyle(theme.textPrimaryAlt)
             Text(label)
                 .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(Color(hex: 0xBBBBBB))
+                .foregroundStyle(theme.textTertiary)
                 .tracking(1)
         }
     }
@@ -349,6 +354,7 @@ struct AchievementsPageView: View {
 
 struct StatsPageView: View {
     private let stats = StatsManager.shared
+    private var theme: AppTheme { AppTheme.shared }
 
     var body: some View {
         ScrollView {
@@ -372,7 +378,7 @@ struct StatsPageView: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color(hex: 0xEEEEF0))
+                    .fill(theme.isDark ? Color(hex: 0x2A2A32) : Color(hex: 0xEEEEF0))
             )
 
             if selectedSub == 0 {
@@ -391,7 +397,7 @@ struct StatsPageView: View {
         } label: {
             Text(title)
                 .font(.system(size: 12, weight: selectedSub == index ? .bold : .medium, design: .rounded))
-                .foregroundStyle(selectedSub == index ? Color(hex: 0x2A2A2A) : Color(hex: 0x999999))
+                .foregroundStyle(selectedSub == index ? theme.textPrimary : theme.textMuted)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
                 .frame(maxWidth: .infinity)
@@ -399,8 +405,8 @@ struct StatsPageView: View {
                     Group {
                         if selectedSub == index {
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(.white)
-                                .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
+                                .fill(theme.cardFill)
+                                .shadow(color: .black.opacity(theme.shadowOpacity), radius: 4, y: 2)
                         }
                     }
                 )
@@ -427,7 +433,7 @@ struct StatsPageView: View {
                         HStack {
                             Text("\(stats.discoveredColors.count) of \(PrismColor.wheelSize)")
                                 .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                .foregroundStyle(Color(hex: 0x3A3A4A))
+                                .foregroundStyle(theme.textPrimaryAlt)
                             Spacer()
                             Text("\(Int(round(Double(stats.discoveredColors.count) / Double(PrismColor.wheelSize) * 100)))%")
                                 .font(.system(size: 13, weight: .bold, design: .rounded))
@@ -436,7 +442,7 @@ struct StatsPageView: View {
                         GeometryReader { geo in
                             ZStack(alignment: .leading) {
                                 RoundedRectangle(cornerRadius: 4)
-                                    .fill(Color(hex: 0xEEEEF0))
+                                    .fill(theme.isDark ? Color(hex: 0x2A2A32) : Color(hex: 0xEEEEF0))
                                 RoundedRectangle(cornerRadius: 4)
                                     .fill(
                                         LinearGradient(
@@ -504,7 +510,7 @@ struct StatsPageView: View {
                             HStack(spacing: 8) {
                                 Text("\(i + 1)")
                                     .font(.system(size: 13, weight: .bold, design: .rounded))
-                                    .foregroundStyle(Color(hex: 0x3A3A4A))
+                                    .foregroundStyle(theme.textPrimaryAlt)
                                     .frame(width: 16)
 
                                 GeometryReader { geo in
@@ -522,7 +528,7 @@ struct StatsPageView: View {
                                                         endPoint: .trailing
                                                     )
                                                     : LinearGradient(
-                                                        colors: [Color(hex: 0xCCCCCC), Color(hex: 0xBBBBBB)],
+                                                        colors: [theme.textQuaternary, theme.textTertiary],
                                                         startPoint: .leading,
                                                         endPoint: .trailing
                                                     )
@@ -552,7 +558,7 @@ struct StatsPageView: View {
                             miniStat(value: "\(stats.dailyCurrentStreak)", label: "Current\nStreak", color: Color(hex: 0xFF5E6C))
                             miniStat(value: "\(stats.dailyMaxStreak)", label: "Best\nStreak", color: Color(hex: 0xD4724A))
                             miniStat(value: "\(stats.dailyWins)", label: "Total\nWins", color: Color(hex: 0x4CAF50))
-                            miniStat(value: "\(stats.dailyPlayed - stats.dailyWins)", label: "Total\nLosses", color: Color(hex: 0x999999))
+                            miniStat(value: "\(stats.dailyPlayed - stats.dailyWins)", label: "Total\nLosses", color: theme.textMuted)
                         }
                     }
                 }
@@ -575,13 +581,13 @@ struct StatsPageView: View {
         .background(
             ZStack {
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(.white.opacity(0.88))
+                    .fill(theme.cardFill.opacity(theme.cardFillOpacity))
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(.thinMaterial)
+                    .fill(theme.cardMaterial)
                 RoundedRectangle(cornerRadius: 16)
-                    .strokeBorder(.white.opacity(0.9), lineWidth: 0.5)
+                    .strokeBorder(theme.cardBorderColor.opacity(theme.cardBorderOpacity), lineWidth: 0.5)
             }
-            .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
+            .shadow(color: .black.opacity(theme.shadowOpacity), radius: 12, y: 4)
         )
     }
 
@@ -589,10 +595,10 @@ struct StatsPageView: View {
         VStack(spacing: 2) {
             Text(value)
                 .font(.system(size: 24, weight: .black, design: .rounded))
-                .foregroundStyle(Color(hex: 0x2A2A2A))
+                .foregroundStyle(theme.textPrimary)
             Text(label)
                 .font(.system(size: 9, weight: .bold))
-                .foregroundStyle(Color(hex: 0xBBBBBB))
+                .foregroundStyle(theme.textTertiary)
                 .tracking(1)
         }
         .frame(maxWidth: .infinity)
@@ -605,7 +611,7 @@ struct StatsPageView: View {
                 .foregroundStyle(color)
             Text(title)
                 .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundStyle(Color(hex: 0x3A3A4A))
+                .foregroundStyle(theme.textPrimaryAlt)
             Spacer()
         }
     }
@@ -614,11 +620,11 @@ struct StatsPageView: View {
         HStack {
             Text(label)
                 .font(.system(size: 13, weight: .regular, design: .rounded))
-                .foregroundStyle(Color(hex: 0x777777))
+                .foregroundStyle(theme.textSecondary)
             Spacer()
             Text(value)
                 .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundStyle(Color(hex: 0x3A3A4A))
+                .foregroundStyle(theme.textPrimaryAlt)
         }
     }
 
@@ -629,7 +635,7 @@ struct StatsPageView: View {
                 .foregroundStyle(color)
             Text(label)
                 .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(Color(hex: 0xAAAAAA))
+                .foregroundStyle(theme.textTertiary)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
         }

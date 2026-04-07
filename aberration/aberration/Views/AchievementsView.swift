@@ -11,6 +11,7 @@ import SwiftUI
 
 struct AchievementsView: View {
     @Environment(\.dismiss) private var dismiss
+    private var theme: AppTheme { AppTheme.shared }
 
     private let columns = 5
     private let spacing: CGFloat = 6
@@ -22,8 +23,12 @@ struct AchievementsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(hex: 0xF5F5F7)
-                    .ignoresSafeArea()
+                LinearGradient(
+                    colors: [theme.screenBgTop, theme.screenBgBottom],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
 
                 VStack(spacing: 20) {
                     // Progress count
@@ -40,7 +45,7 @@ struct AchievementsView: View {
 
                     Text("ACHIEVEMENTS")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(Color(hex: 0xAAAAAA))
+                        .foregroundStyle(theme.textTertiary)
                         .tracking(4)
 
                     // Scrollable 5-column grid
@@ -113,7 +118,6 @@ struct AchievementsView: View {
                 }
             }
         }
-        .preferredColorScheme(.light)
     }
 
     // MARK: - Achievement Tile
@@ -162,7 +166,7 @@ struct AchievementsView: View {
                 RoundedRectangle(cornerRadius: size * 0.18)
                     .fill(
                         LinearGradient(
-                            colors: [Color(hex: 0xEDEDEF), Color(hex: 0xE0E0E2)],
+                            colors: [theme.lockedBgTop, theme.lockedBgBottom],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -171,7 +175,7 @@ struct AchievementsView: View {
                 RoundedRectangle(cornerRadius: size * 0.18)
                     .fill(
                         LinearGradient(
-                            colors: [.white.opacity(0.3), .clear],
+                            colors: [.white.opacity(theme.isDark ? 0.1 : 0.3), .clear],
                             startPoint: .topLeading,
                             endPoint: .center
                         )
@@ -179,13 +183,13 @@ struct AchievementsView: View {
 
                 RoundedRectangle(cornerRadius: size * 0.18)
                     .strokeBorder(
-                        isSelected ? Color(hex: 0x999999) : .white.opacity(0.3),
+                        isSelected ? theme.textMuted : .white.opacity(theme.isDark ? 0.1 : 0.3),
                         lineWidth: isSelected ? 2.5 : 0.5
                     )
 
                 Image(systemName: "lock.fill")
                     .font(.system(size: size * 0.24, weight: .medium))
-                    .foregroundStyle(Color(hex: 0xCCCCCC))
+                    .foregroundStyle(theme.textQuaternary)
             }
         }
         .frame(width: size, height: size)
@@ -228,19 +232,19 @@ struct AchievementsView: View {
                     .font(.system(size: 15, weight: .black, design: .rounded))
                     .foregroundStyle(
                         isUnlocked
-                            ? Color(hue: achievement.hue, saturation: 0.7, brightness: 0.4)
-                            : Color(hex: 0x999999)
+                            ? Color(hue: achievement.hue, saturation: theme.isDark ? 0.5 : 0.7, brightness: theme.isDark ? 0.8 : 0.4)
+                            : theme.textMuted
                     )
                     .tracking(2)
 
                 Text(achievement.description)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color(hex: 0x777777))
+                    .foregroundStyle(theme.textSecondary)
 
                 if !isUnlocked {
                     Text("LOCKED")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Color(hex: 0xBBBBBB))
+                        .foregroundStyle(theme.textTertiary)
                         .tracking(3)
                         .padding(.top, 2)
                 }
@@ -251,13 +255,13 @@ struct AchievementsView: View {
         .background(
             ZStack {
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(.white.opacity(0.85))
+                    .fill(theme.cardFill.opacity(theme.cardFillOpacity))
                 RoundedRectangle(cornerRadius: 16)
                     .fill(.ultraThinMaterial)
                 RoundedRectangle(cornerRadius: 16)
-                    .strokeBorder(.white.opacity(0.6), lineWidth: 0.5)
+                    .strokeBorder(.white.opacity(theme.isDark ? 0.15 : 0.6), lineWidth: 0.5)
             }
-            .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
+            .shadow(color: .black.opacity(theme.shadowOpacity), radius: 12, y: 4)
         )
         .padding(.horizontal, 20)
     }
@@ -280,10 +284,10 @@ struct AchievementsView: View {
         VStack(spacing: 2) {
             Text(value)
                 .font(.system(size: 16, weight: .bold, design: .rounded))
-                .foregroundStyle(Color(hex: 0x3A3A4A))
+                .foregroundStyle(theme.textPrimaryAlt)
             Text(label)
                 .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(Color(hex: 0xBBBBBB))
+                .foregroundStyle(theme.textTertiary)
                 .tracking(1)
         }
     }

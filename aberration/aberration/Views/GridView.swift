@@ -3,6 +3,7 @@ import SwiftUI
 struct GridView: View {
     var game: GameState
     let cellSize: CGFloat
+    private var theme: AppTheme { AppTheme.shared }
 
     private let spacing: CGFloat = 5
     private let inset: CGFloat = 6
@@ -131,6 +132,13 @@ struct GridView: View {
                 blendPreview: blendPreview
             )
             .background {
+                // Colored bloom glow behind filled tiles (dark mode only)
+                if theme.tileGlowOpacity > 0 {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(tileColor.color.opacity(theme.tileGlowOpacity))
+                        .blur(radius: theme.tileGlowRadius)
+                        .scaleEffect(1.15)
+                }
                 if isGolden {
                     RoundedRectangle(cornerRadius: 14)
                         .fill(Color(hex: 0xFFD700).opacity(0.5))
@@ -148,20 +156,35 @@ struct GridView: View {
                 }
             }
         } else {
-            // Empty cell — subtle but tactile
+            // Empty cell — subtle depth with inner glow in dark mode
             RoundedRectangle(cornerRadius: 10)
                 .fill(
                     LinearGradient(
-                        colors: [Color(hex: 0xEAEAEE), Color(hex: 0xE0E0E5)],
+                        colors: [theme.emptyCellTop, theme.emptyCellBottom],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
                 .overlay(
+                    // Faint inner glow — makes cells feel like receptacles, not holes
                     RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(Color(hex: 0xD0D0D8), lineWidth: 1)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    theme.emptyCellInnerGlow.opacity(theme.emptyCellInnerGlowOpacity * 2),
+                                    theme.emptyCellInnerGlow.opacity(theme.emptyCellInnerGlowOpacity)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
                 )
-                .shadow(color: .black.opacity(0.04), radius: 2, y: 1)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(theme.emptyCellBorder.opacity(0.5), lineWidth: 0.5)
+                )
+                .shadow(color: .black.opacity(theme.emptyCellShadowOpacity), radius: 2, y: 1)
         }
     }
 

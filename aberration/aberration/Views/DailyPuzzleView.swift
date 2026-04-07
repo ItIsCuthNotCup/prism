@@ -10,6 +10,7 @@ import SwiftUI
 
 struct DailyPuzzleView: View {
     @State private var puzzle = DailyPuzzleState()
+    private var theme: AppTheme { AppTheme.shared }
     @State private var toastDismissWork: DispatchWorkItem? = nil
     @State private var showHowToPlay = false
     @State private var wrongShake: CGFloat = 0
@@ -28,8 +29,12 @@ struct DailyPuzzleView: View {
             let cellSize = max(1, (cellsArea - CGFloat(puzzle.gridSize - 1) * spacing) / CGFloat(puzzle.gridSize))
 
             ZStack {
-                Color(hex: 0xF5F5F7)
-                    .ignoresSafeArea()
+                LinearGradient(
+                    colors: [theme.screenBgTop, theme.screenBgBottom],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
 
                 dotGridBackground
 
@@ -41,12 +46,12 @@ struct DailyPuzzleView: View {
                         } label: {
                             Image(systemName: "chevron.left")
                                 .font(.system(size: 17, weight: .medium, design: .rounded))
-                                .foregroundStyle(Color(hex: 0x555555))
+                                .foregroundStyle(theme.iconMuted)
                         }
                         Spacer()
                         Text("Hue of the Day")
                             .font(.system(size: 16, weight: .semibold, design: .rounded))
-                            .foregroundStyle(Color(hex: 0x3A3A4A))
+                            .foregroundStyle(theme.textPrimaryAlt)
                             .tracking(1)
                         Spacer()
                         Image(systemName: "chevron.left")
@@ -68,7 +73,7 @@ struct DailyPuzzleView: View {
 
                         // Thin separator
                         Rectangle()
-                            .fill(Color(hex: 0xDDDDDD).opacity(0.5))
+                            .fill(theme.divider.opacity(theme.dividerOpacity))
                             .frame(height: 0.5)
                             .padding(.horizontal, 12)
 
@@ -88,7 +93,7 @@ struct DailyPuzzleView: View {
                                     Text("How to Play")
                                         .font(.system(size: 13, weight: .semibold))
                                 }
-                                .foregroundStyle(Color(hex: 0x3A3A4A))
+                                .foregroundStyle(theme.textPrimaryAlt)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 10)
                             }
@@ -102,7 +107,7 @@ struct DailyPuzzleView: View {
                                     Text("Share")
                                         .font(.system(size: 13, weight: .semibold))
                                 }
-                                .foregroundStyle(Color(hex: 0x3A3A4A))
+                                .foregroundStyle(theme.textPrimaryAlt)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 10)
                             }
@@ -150,7 +155,6 @@ struct DailyPuzzleView: View {
                 .allowsHitTesting(false)
             }
         }
-        .preferredColorScheme(.light)
         .onAppear {
             MusicManager.shared.setGameplayVolume()
         }
@@ -185,7 +189,7 @@ struct DailyPuzzleView: View {
         VStack(spacing: 1) {
             Text("ATTEMPTS")
                 .font(.system(size: 10, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color(hex: 0x888888))
+                .foregroundStyle(theme.textSecondary)
                 .tracking(1.5)
             HStack(spacing: 4) {
                 ForEach(0..<puzzle.maxAttempts, id: \.self) { i in
@@ -198,7 +202,7 @@ struct DailyPuzzleView: View {
                                     endPoint: .bottom
                                   )
                                 : LinearGradient(
-                                    colors: [Color(hex: 0xDDDDDD), Color(hex: 0xCCCCCC)],
+                                    colors: [theme.textQuaternary, theme.textTertiary],
                                     startPoint: .top,
                                     endPoint: .bottom
                                   )
@@ -224,7 +228,7 @@ struct DailyPuzzleView: View {
                     colorSwatch(puzzle.targetColor, size: swatchSize)
                     Text(puzzle.targetColor.name.uppercased())
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(Color(hex: 0x3A3A4A))
+                        .foregroundStyle(theme.textPrimaryAlt)
                         .tracking(3)
                 }
                 .transition(.opacity)
@@ -237,19 +241,19 @@ struct DailyPuzzleView: View {
                         colorSwatch(inter, size: swatchSize)
                         Text(inter.name)
                             .font(.system(size: 10, weight: .semibold, design: .rounded))
-                            .foregroundStyle(Color(hex: 0x888888))
+                            .foregroundStyle(theme.textSecondary)
                     }
 
                     Text("+  ?  =")
                         .font(.system(size: 16, weight: .medium, design: .rounded))
-                        .foregroundStyle(Color(hex: 0x888888))
+                        .foregroundStyle(theme.textSecondary)
 
                     // Target swatch
                     VStack(spacing: 3) {
                         colorSwatch(puzzle.targetColor, size: swatchSize)
                         Text(puzzle.targetColor.name)
                             .font(.system(size: 10, weight: .semibold, design: .rounded))
-                            .foregroundStyle(Color(hex: 0x3A3A4A))
+                            .foregroundStyle(theme.textPrimaryAlt)
                     }
                 }
                 .transition(.opacity)
@@ -286,7 +290,7 @@ struct DailyPuzzleView: View {
                 } else {
                     // Empty dot
                     RoundedRectangle(cornerRadius: 4)
-                        .strokeBorder(Color(hex: 0xCCCCCC), lineWidth: 1.5)
+                        .strokeBorder(theme.textQuaternary, lineWidth: 1.5)
                         .frame(width: 18, height: 18)
                 }
             }
@@ -384,10 +388,16 @@ struct DailyPuzzleView: View {
                 .opacity(puzzle.isSolved || puzzle.isFailed ? 0.4 : 1.0)
         } else {
             RoundedRectangle(cornerRadius: 10)
-                .fill(Color(hex: 0xE4E4EA))
+                .fill(
+                    LinearGradient(
+                        colors: [theme.emptyCellTop, theme.emptyCellBottom],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(Color(hex: 0xD0D0D8).opacity(0.7), lineWidth: 0.75)
+                        .strokeBorder(theme.emptyCellBorder.opacity(0.7), lineWidth: 0.75)
                 )
         }
     }
@@ -414,23 +424,23 @@ struct DailyPuzzleView: View {
 
     private var solvedOverlay: some View {
         ZStack {
-            Color.black.opacity(0.3)
+            Color.black.opacity(theme.overlayBgDim)
                 .ignoresSafeArea()
 
             VStack(spacing: 16) {
                 Text(puzzle.scoreTier)
                     .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color(hex: 0x2A2A2A))
+                    .foregroundStyle(theme.textPrimary)
 
                 colorSwatch(puzzle.targetColor, size: 70)
 
                 Text(puzzle.targetColor.name)
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color(hex: 0x4A4A5A))
+                    .foregroundStyle(theme.statValue)
 
                 Text("\(puzzle.attempts.count)/\(puzzle.maxAttempts)")
                     .font(.system(size: 14, weight: .medium, design: .rounded))
-                    .foregroundStyle(Color(hex: 0x888888))
+                    .foregroundStyle(theme.textSecondary)
 
                 Button {
                     shareResult()
@@ -442,12 +452,12 @@ struct DailyPuzzleView: View {
                             .font(.system(size: 16, weight: .bold))
                             .tracking(2)
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(theme.primaryButtonText)
                     .padding(.horizontal, 36)
                     .padding(.vertical, 14)
                     .background(
                         Capsule()
-                            .fill(Color(hex: 0x2A2A2A))
+                            .fill(theme.primaryButtonBg)
                             .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
                     )
                 }
@@ -457,14 +467,20 @@ struct DailyPuzzleView: View {
                 } label: {
                     Text("Back to Menu")
                         .font(.system(size: 14, weight: .medium, design: .rounded))
-                        .foregroundStyle(Color(hex: 0xAAAAAA))
+                        .foregroundStyle(theme.textTertiary)
                 }
             }
             .padding(28)
             .background(
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(.white.opacity(0.95))
-                    .shadow(color: .black.opacity(0.12), radius: 20, y: 8)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(theme.overlayCardFill.opacity(theme.overlayCardOpacity))
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(.ultraThinMaterial)
+                    RoundedRectangle(cornerRadius: 24)
+                        .strokeBorder(.white.opacity(theme.isDark ? 0.15 : 0.6), lineWidth: 0.5)
+                }
+                .shadow(color: .black.opacity(theme.isDark ? 0.4 : 0.12), radius: 20, y: 8)
             )
             .transition(.scale(scale: 0.9).combined(with: .opacity))
         }
@@ -475,19 +491,19 @@ struct DailyPuzzleView: View {
 
     private var failedOverlay: some View {
         ZStack {
-            Color.black.opacity(0.3)
+            Color.black.opacity(theme.overlayBgDim)
                 .ignoresSafeArea()
 
             VStack(spacing: 16) {
                 Text("Not today")
                     .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color(hex: 0x2A2A2A))
+                    .foregroundStyle(theme.textPrimary)
 
                 colorSwatch(puzzle.targetColor, size: 70)
 
                 Text(puzzle.targetColor.name)
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color(hex: 0x4A4A5A))
+                    .foregroundStyle(theme.statValue)
 
                 Button {
                     shareResult()
@@ -499,12 +515,12 @@ struct DailyPuzzleView: View {
                             .font(.system(size: 16, weight: .bold))
                             .tracking(2)
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(theme.primaryButtonText)
                     .padding(.horizontal, 36)
                     .padding(.vertical, 14)
                     .background(
                         Capsule()
-                            .fill(Color(hex: 0x2A2A2A))
+                            .fill(theme.primaryButtonBg)
                             .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
                     )
                 }
@@ -514,14 +530,20 @@ struct DailyPuzzleView: View {
                 } label: {
                     Text("Back to Menu")
                         .font(.system(size: 14, weight: .medium, design: .rounded))
-                        .foregroundStyle(Color(hex: 0xAAAAAA))
+                        .foregroundStyle(theme.textTertiary)
                 }
             }
             .padding(28)
             .background(
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(.white.opacity(0.95))
-                    .shadow(color: .black.opacity(0.12), radius: 20, y: 8)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(theme.overlayCardFill.opacity(theme.overlayCardOpacity))
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(.ultraThinMaterial)
+                    RoundedRectangle(cornerRadius: 24)
+                        .strokeBorder(.white.opacity(theme.isDark ? 0.15 : 0.6), lineWidth: 0.5)
+                }
+                .shadow(color: .black.opacity(theme.isDark ? 0.4 : 0.12), radius: 20, y: 8)
             )
             .transition(.scale(scale: 0.9).combined(with: .opacity))
         }
@@ -559,7 +581,6 @@ struct DailyPuzzleView: View {
             }
         }
         .presentationDetents([.large])
-        .preferredColorScheme(.light)
     }
 
     private func dailyRulesRow(icon: String, color: Color, text: String) -> some View {
@@ -570,7 +591,7 @@ struct DailyPuzzleView: View {
                 .frame(width: 24)
             Text(text)
                 .font(.system(size: 14))
-                .foregroundStyle(Color(hex: 0x3A3A4A))
+                .foregroundStyle(theme.textPrimaryAlt)
         }
         .padding(.vertical, 2)
     }
@@ -595,19 +616,21 @@ struct DailyPuzzleView: View {
     private func glassCard(cornerRadius: CGFloat) -> some View {
         ZStack {
             RoundedRectangle(cornerRadius: cornerRadius)
-                .fill(.white.opacity(0.88))
+                .fill(theme.cardFill.opacity(theme.cardFillOpacity))
             RoundedRectangle(cornerRadius: cornerRadius)
-                .fill(.thinMaterial)
+                .fill(theme.cardMaterial)
             RoundedRectangle(cornerRadius: cornerRadius)
-                .strokeBorder(.white.opacity(0.9), lineWidth: 0.5)
+                .strokeBorder(theme.cardBorderColor.opacity(theme.cardBorderOpacity), lineWidth: 0.5)
         }
-        .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
+        .shadow(color: .black.opacity(theme.shadowOpacity), radius: 12, y: 4)
     }
 
     private var dotGridBackground: some View {
         Canvas { context, size in
             let dotSpacing: CGFloat = 20
             let dotRadius: CGFloat = 0.7
+            let dotColor = AppTheme.shared.dotGridColor
+            let dotOpacity = AppTheme.shared.dotGridOpacity
             for x in stride(from: CGFloat(0), to: size.width, by: dotSpacing) {
                 for y in stride(from: CGFloat(0), to: size.height, by: dotSpacing) {
                     let rect = CGRect(
@@ -616,7 +639,7 @@ struct DailyPuzzleView: View {
                         width: dotRadius * 2,
                         height: dotRadius * 2
                     )
-                    context.fill(Path(ellipseIn: rect), with: .color(.black.opacity(0.08)))
+                    context.fill(Path(ellipseIn: rect), with: .color(dotColor.opacity(dotOpacity)))
                 }
             }
         }
@@ -627,14 +650,14 @@ struct DailyPuzzleView: View {
         HStack(spacing: 0) {
             Text(text)
                 .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundStyle(Color(hex: 0x3A3A4A))
+                .foregroundStyle(theme.toastText)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(.white.opacity(0.85))
+                .fill(theme.toastFill.opacity(theme.toastFillOpacity))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
                         .fill(.ultraThinMaterial)
@@ -643,14 +666,14 @@ struct DailyPuzzleView: View {
                     RoundedRectangle(cornerRadius: 16)
                         .strokeBorder(
                             LinearGradient(
-                                colors: [.white.opacity(0.8), .white.opacity(0.2)],
+                                colors: [.white.opacity(theme.isDark ? 0.2 : 0.8), .white.opacity(theme.isDark ? 0.05 : 0.2)],
                                 startPoint: .top,
                                 endPoint: .bottom
                             ),
                             lineWidth: 0.5
                         )
                 )
-                .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
+                .shadow(color: .black.opacity(theme.shadowOpacity), radius: 12, y: 4)
         )
     }
 }

@@ -17,6 +17,7 @@ struct GameOverOverlay: View {
 
     @State private var showShareSheet = false
     @State private var showAchievements = false
+    private var theme: AppTheme { AppTheme.shared }
 
     private var isNewHighScore: Bool { score >= highScore && score > 0 }
 
@@ -53,7 +54,7 @@ struct GameOverOverlay: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.3)
+            Color.black.opacity(theme.overlayBgDim)
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -67,7 +68,7 @@ struct GameOverOverlay: View {
                     .foregroundStyle(
                         isNewHighScore
                             ? Color(hex: 0xF59E0B)
-                            : Color(hex: 0x3A3A4A)
+                            : theme.textPrimaryAlt
                     )
                     .padding(.bottom, 12)
 
@@ -79,7 +80,7 @@ struct GameOverOverlay: View {
                             LinearGradient(
                                 colors: isNewHighScore
                                     ? [Color(hex: 0xF59E0B), Color(hex: 0xF97316)]
-                                    : [Color(hex: 0x3A3A4A), Color(hex: 0x555566)],
+                                    : [theme.textPrimaryAlt, theme.iconMuted],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
@@ -88,7 +89,7 @@ struct GameOverOverlay: View {
 
                     Text("POINTS")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Color(hex: 0xBBBBBB))
+                        .foregroundStyle(theme.textTertiary)
                         .tracking(3)
                 }
                 .padding(.bottom, 16)
@@ -118,7 +119,7 @@ struct GameOverOverlay: View {
                     HStack(spacing: 8) {
                         Text("Needed")
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(Color(hex: 0xAAAAAA))
+                            .foregroundStyle(theme.textTertiary)
 
                         RoundedRectangle(cornerRadius: 6)
                             .fill(
@@ -136,7 +137,7 @@ struct GameOverOverlay: View {
 
                         Text(target.name.uppercased())
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(Color(hex: 0x666666))
+                            .foregroundStyle(theme.textSecondary)
                             .tracking(1)
                     }
                     .padding(.bottom, 20)
@@ -152,7 +153,7 @@ struct GameOverOverlay: View {
                                     Teardrop()
                                         .fill(
                                             LinearGradient(
-                                                colors: [Color(hex: 0x555555), Color(hex: 0x333333)],
+                                                colors: [theme.iconMuted, theme.textPrimaryAlt],
                                                 startPoint: .top,
                                                 endPoint: .bottom
                                             )
@@ -163,15 +164,15 @@ struct GameOverOverlay: View {
                             Text("Retry Round")
                                 .font(.system(size: 15, weight: .semibold))
                         }
-                        .foregroundStyle(Color(hex: 0x555555))
+                        .foregroundStyle(theme.iconMuted)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(
                             Capsule()
-                                .fill(.white.opacity(0.8))
+                                .fill(theme.secondaryButtonBg.opacity(theme.secondaryButtonBgOpacity))
                                 .overlay(
                                     Capsule()
-                                        .strokeBorder(Color(hex: 0x2A2A2A).opacity(0.2), lineWidth: 1)
+                                        .strokeBorder(theme.secondaryButtonBorder.opacity(0.2), lineWidth: 1)
                                 )
                         )
                     }
@@ -187,14 +188,14 @@ struct GameOverOverlay: View {
                     } label: {
                         Image(systemName: "square.and.arrow.up")
                             .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(Color(hex: 0x555555))
+                            .foregroundStyle(theme.iconMuted)
                             .frame(width: 50, height: 48)
                             .background(
                                 Capsule()
-                                    .fill(.white.opacity(0.8))
+                                    .fill(theme.secondaryButtonBg.opacity(theme.secondaryButtonBgOpacity))
                                     .overlay(
                                         Capsule()
-                                            .strokeBorder(Color(hex: 0x2A2A2A).opacity(0.2), lineWidth: 1)
+                                            .strokeBorder(theme.secondaryButtonBorder.opacity(0.2), lineWidth: 1)
                                     )
                             )
                     }
@@ -205,14 +206,14 @@ struct GameOverOverlay: View {
                     } label: {
                         Image(systemName: "trophy.fill")
                             .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(Color(hex: 0x555555))
+                            .foregroundStyle(theme.iconMuted)
                             .frame(width: 50, height: 48)
                             .background(
                                 Capsule()
-                                    .fill(.white.opacity(0.8))
+                                    .fill(theme.secondaryButtonBg.opacity(theme.secondaryButtonBgOpacity))
                                     .overlay(
                                         Capsule()
-                                            .strokeBorder(Color(hex: 0x2A2A2A).opacity(0.2), lineWidth: 1)
+                                            .strokeBorder(theme.secondaryButtonBorder.opacity(0.2), lineWidth: 1)
                                     )
                             )
                     }
@@ -221,12 +222,12 @@ struct GameOverOverlay: View {
                     Button(action: onPlayAgain) {
                         Text("Play Again")
                             .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(theme.primaryButtonText)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 13)
                             .background(
                                 Capsule()
-                                    .fill(Color(hex: 0x2A2A2A))
+                                    .fill(theme.primaryButtonBg)
                                     .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
                             )
                     }
@@ -238,13 +239,13 @@ struct GameOverOverlay: View {
             .background(
                 ZStack {
                     RoundedRectangle(cornerRadius: 28)
-                        .fill(.white.opacity(0.9))
+                        .fill(theme.overlayCardFill.opacity(theme.overlayCardOpacity))
                     RoundedRectangle(cornerRadius: 28)
                         .fill(.ultraThinMaterial)
                     RoundedRectangle(cornerRadius: 28)
-                        .strokeBorder(.white.opacity(0.6), lineWidth: 0.5)
+                        .strokeBorder(.white.opacity(theme.isDark ? 0.15 : 0.6), lineWidth: 0.5)
                 }
-                .shadow(color: .black.opacity(0.12), radius: 30, y: 10)
+                .shadow(color: .black.opacity(theme.isDark ? 0.4 : 0.12), radius: 30, y: 10)
             )
             .padding(.horizontal, 28)
         }
@@ -267,10 +268,10 @@ struct GameOverOverlay: View {
         VStack(spacing: 2) {
             Text(value)
                 .font(.system(size: 18, weight: .bold, design: .rounded))
-                .foregroundStyle(Color(hex: 0x3A3A4A))
+                .foregroundStyle(theme.textPrimaryAlt)
             Text(label)
                 .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(Color(hex: 0xBBBBBB))
+                .foregroundStyle(theme.textTertiary)
                 .tracking(1)
         }
     }

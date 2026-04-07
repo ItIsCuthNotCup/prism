@@ -14,6 +14,7 @@ struct MixingLaneView: View {
     let lane: MixingLaneState
     let cellSize: CGFloat
     let gridWidth: CGFloat
+    private var theme: AppTheme { AppTheme.shared }
 
     private let tileSpacing: CGFloat = 6
     private let verticalPadding: CGFloat = 10
@@ -88,28 +89,26 @@ struct MixingLaneView: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color(hex: 0xF0F0F4).opacity(0.6),
-                            Color(hex: 0xE8E8ED).opacity(0.6)
+                            theme.mixGlassTop.opacity(0.6),
+                            theme.mixGlassBottom.opacity(0.6)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
 
-            // Subtle inner shadow effect
             RoundedRectangle(cornerRadius: 10)
                 .strokeBorder(
                     LinearGradient(
-                        colors: [Color.white.opacity(0.5), Color.white.opacity(0.1)],
+                        colors: [Color.white.opacity(theme.isDark ? 0.15 : 0.5), Color.white.opacity(theme.isDark ? 0.05 : 0.1)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
                     lineWidth: 0.5
                 )
 
-            // Very faint dashed outline
             RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(Color(hex: 0xCCCCD4).opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                .strokeBorder(theme.mixGlassDash.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
         }
         .frame(width: cellSize, height: cellSize)
     }

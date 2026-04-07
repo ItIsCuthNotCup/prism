@@ -10,6 +10,7 @@ import SwiftUI
 struct RewardOfferView: View {
     let onWatchAd: () -> Void
     let onDecline: () -> Void
+    private var theme: AppTheme { AppTheme.shared }
 
     @State private var appear = false
 
@@ -74,12 +75,12 @@ struct RewardOfferView: View {
                 // Title
                 Text("Earn a Prize")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color(hex: 0x3A3A4A))
+                    .foregroundStyle(theme.textPrimaryAlt)
 
                 // Description
                 Text("Watch a short ad to open a reward chest.\nYou could get an extra life or a hint!")
                     .font(.system(size: 14, weight: .medium, design: .rounded))
-                    .foregroundStyle(Color(hex: 0x8D99AE))
+                    .foregroundStyle(theme.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(2)
 
@@ -111,7 +112,7 @@ struct RewardOfferView: View {
                 Button(action: onDecline) {
                     Text("No Thanks")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Color(hex: 0xAAAAAA))
+                        .foregroundStyle(theme.textTertiary)
                 }
             }
             .padding(.horizontal, 32)
@@ -119,13 +120,13 @@ struct RewardOfferView: View {
             .background(
                 ZStack {
                     RoundedRectangle(cornerRadius: 28)
-                        .fill(.white.opacity(0.95))
+                        .fill(theme.overlayCardFill.opacity(theme.overlayCardOpacity))
                     RoundedRectangle(cornerRadius: 28)
                         .fill(.ultraThinMaterial)
                     RoundedRectangle(cornerRadius: 28)
-                        .strokeBorder(.white.opacity(0.6), lineWidth: 0.5)
+                        .strokeBorder(.white.opacity(theme.isDark ? 0.15 : 0.6), lineWidth: 0.5)
                 }
-                .shadow(color: .black.opacity(0.12), radius: 30, y: 10)
+                .shadow(color: .black.opacity(theme.isDark ? 0.4 : 0.12), radius: 30, y: 10)
             )
             .padding(.horizontal, 28)
             .scaleEffect(appear ? 1 : 0.9)

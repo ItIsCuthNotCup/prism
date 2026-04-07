@@ -7,6 +7,7 @@ import SwiftUI
 struct RewardChestView: View {
     let reward: GameState.RewardType
     let onDismiss: () -> Void
+    private var theme: AppTheme { AppTheme.shared }
 
     @State private var phase: Phase = .waiting
     @State private var lidAngle: Double = 0
@@ -74,11 +75,11 @@ struct RewardChestView: View {
                 VStack(spacing: 4) {
                     Text(rewardTitle)
                         .font(.system(size: 20, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color(hex: 0x3A3A4A))
+                        .foregroundStyle(theme.textPrimaryAlt)
 
                     Text(rewardSubtitle)
                         .font(.system(size: 14, weight: .medium, design: .rounded))
-                        .foregroundStyle(Color(hex: 0x8D99AE))
+                        .foregroundStyle(theme.textSecondary)
                 }
                 .opacity(labelOpacity)
                 .padding(.top, 8)
@@ -87,7 +88,7 @@ struct RewardChestView: View {
                 if phase == .revealed {
                     Text("Tap anywhere to continue")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color(hex: 0xBBBBBB))
+                        .foregroundStyle(theme.textTertiary)
                         .padding(.top, 8)
                         .transition(.opacity)
                 }
