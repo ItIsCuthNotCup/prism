@@ -30,8 +30,20 @@ class GameState {
     var poppingPositions: Set<GridPosition> = []
     var showMilestone: Bool = false
 
-    /// Active metaball merge animation (nil when no merge is playing)
-    var activeMerge: MergeAnimation? = nil
+    // (activeMerge removed — blend animation now lives in MixingLane)
+
+    // MARK: - Blend Event (for mixing lane)
+
+    /// Fired each time a blend happens. ContentView reads this to trigger flying blobs + lane entry.
+    struct BlendEvent: Equatable {
+        let id: UUID
+        let posA: GridPosition
+        let posB: GridPosition
+        let colorA: Color
+        let colorB: Color
+        let resultColor: Color
+    }
+    var lastBlendEvent: BlendEvent? = nil
 
     /// Positions that were emptied by the last successful match — excluded from next spawn
     private var recentlyEmptiedPositions: Set<GridPosition> = []
@@ -655,7 +667,6 @@ class GameState {
         selectedPosition = nil
         isProcessing = false
         isGameOver = false
-        activeMerge = nil
         blendingPositions = nil
         poppingPositions = []
     }
@@ -802,85 +813,71 @@ class GameState {
             undoScore = score
         }
 
-        // Lift-merge-drop animation — hide source tiles from grid, show overlay
-        blendingPositions = (posA, posB)
+        // Fire blend event for the mixing lane (ContentView picks this up)
+        lastBlendEvent = BlendEvent(
+            id: UUID(),
+            posA: posA,
+            posB: posB,
+            colorA: colorA.color,
+            colorB: colorB.color,
+            resultColor: result.color
+        )
 
+        // Immediate grid update — tiles drain, result fills at posA
+        grid[posA.row][posA.col] = result
+        grid[posB.row][posB.col] = nil
+        lastBlendPosition = posA
+
+        // Haptic + sound
+        HapticManager.blend()
+        let isMatch = targetColor != nil && result == targetColor!
+        if !isMatch {
+            SoundManager.shared.playBlendTone(for: result)
+        }
+
+        poisonPositions.remove(posA)
+        poisonPositions.remove(posB)
+
+        // Check if a golden tile was used — activate 3x multiplier
+        let usedGolden = goldenPositions.contains(posA) || goldenPositions.contains(posB)
+        goldenPositions.remove(posA)
+        goldenPositions.remove(posB)
+        if usedGolden {
+            activateMultiplier(value: 3, rounds: 3, source: .golden)
+            StatsManager.shared.recordGoldenTileUsed()
+        }
+
+        // Track this color as discovered — feeds into background canvas
+        discoveredColorIndices.insert(result.wheelIndex)
+
+        // Track first blend time for speed bonus
+        if firstBlendTime == nil {
+            firstBlendTime = Date()
+        }
+
+        // Color Explorer: +25 for creating a color new to this game
+        if !newColorsThisGame.contains(result.wheelIndex) {
+            newColorsThisGame.insert(result.wheelIndex)
+            let explorerBonus = 25 * scoreMultiplier
+            score += explorerBonus
+        }
+
+        score += 10 * scoreMultiplier
+        blendsThisTarget += 1
+        totalBlendsThisGame += 1
+
+        // Async: match feedback + round transitions (need sleeps)
         Task {
-            // Launch the blend animation overlay
-            activeMerge = MergeAnimation(
-                posA: posA,
-                posB: posB,
-                colorA: colorA.color,
-                colorB: colorB.color,
-                resultColor: result.color,
-                cellSize: 0,   // ContentView supplies actual layout
-                spacing: 0,
-                gridInset: 0
-            )
-
-            // Haptic + sound at the merge moment (~550ms into animation)
-            try? await Task.sleep(for: .milliseconds(550))
-            HapticManager.blend()
-            let isMatch = targetColor != nil && result == targetColor!
-            if !isMatch {
-                SoundManager.shared.playBlendTone(for: result)
-            }
-
-            // Wait for drop + settle to finish (~400ms more)
-            try? await Task.sleep(for: .milliseconds(400))
-
-            // Clear animation state, apply grid changes
-            activeMerge = nil
-            blendingPositions = nil
-
-            grid[posA.row][posA.col] = result
-            grid[posB.row][posB.col] = nil
-            poisonPositions.remove(posA)
-            poisonPositions.remove(posB)
-
-            // Check if a golden tile was used — activate 3x multiplier
-            let usedGolden = goldenPositions.contains(posA) || goldenPositions.contains(posB)
-            goldenPositions.remove(posA)
-            goldenPositions.remove(posB)
-            if usedGolden {
-                activateMultiplier(value: 3, rounds: 3, source: .golden)
-                StatsManager.shared.recordGoldenTileUsed()
-            }
-
-            lastBlendPosition = posA
-
-            // Track this color as discovered — feeds into background canvas
-            discoveredColorIndices.insert(result.wheelIndex)
-
-            // Track first blend time for speed bonus
-            if firstBlendTime == nil {
-                firstBlendTime = Date()
-            }
-
-            // Color Explorer: +25 for creating a color new to this game
-            if !newColorsThisGame.contains(result.wheelIndex) {
-                newColorsThisGame.insert(result.wheelIndex)
-                let explorerBonus = 25 * scoreMultiplier
-                score += explorerBonus
-            }
-
-            score += 10 * scoreMultiplier
-            blendsThisTarget += 1
-            totalBlendsThisGame += 1
-
             // Check if result matches current target
             if let target = targetColor, result == target {
-                // Stop the timer immediately on match — prevents expiry during overlays
                 stopTimer()
 
                 matchedPosition = posA
                 let roundBonus = round * 50 * scoreMultiplier
                 score += roundBonus
 
-                // Track breakdown
                 lastRoundBlendPoints = blendsThisTarget * 10
                 lastRoundMatchBonus = roundBonus
-
                 lastRoundComboBonus = 0
 
                 updateHighScore()
@@ -893,7 +890,6 @@ class GameState {
                 matchedPosition = nil
                 lastBlendPosition = nil
 
-                // Round complete (non-blocking)
                 captureNewAchievements {
                     StatsManager.shared.recordRoundComplete(
                         colorName: target.name,
@@ -910,14 +906,10 @@ class GameState {
                     SoundManager.shared.playRoundComplete()
                 }
 
-                // Track whether this round was perfect (1 blend) for mercy system
                 lastRoundWasPerfect = (blendsThisTarget == 1)
-
-                // Evaluate round bonuses (perfect blend, efficiency, streak, speed)
                 let roundBonuses = evaluateBonuses()
-                updateHighScore()  // re-check after bonuses
+                updateHighScore()
 
-                // Trigger floating points animation (non-blocking)
                 let totalEarned = lastRoundBlendPoints + lastRoundMatchBonus + lastRoundComboBonus + roundBonuses
                 floatingPointsAmount = totalEarned
                 floatingPointsMultiplier = scoreMultiplier
@@ -925,18 +917,14 @@ class GameState {
                 floatingPointsTrigger += 1
                 completedRoundCount += 1
 
-                // Reset per-round tracking
                 firstBlendTime = nil
-
                 tunnelDepth += 1
 
-                // Tutorial celebration: extra pause + message on first round
                 if completedRound == 1 {
                     tutorialCoachText = nil
                     showToast("That's it! Red + Yellow = Orange")
                     try? await Task.sleep(for: .milliseconds(800))
                 } else {
-                    // Brief pause for visual match feedback
                     try? await Task.sleep(for: .milliseconds(350))
                 }
 
@@ -971,14 +959,12 @@ class GameState {
                 isProcessing = false
                 saveGame()
 
-                // 1/3 chance: remind player a combo still exists
                 if !isGameOver && Int.random(in: 0..<3) == 0 {
                     if findBestBlendPair() != nil {
                         showToast("A working combo is on the board")
                     }
                 }
 
-                // Clear proximity hint after player has seen it (non-blocking)
                 if proximityHint != nil {
                     try? await Task.sleep(for: .milliseconds(1000))
                     proximityHint = nil

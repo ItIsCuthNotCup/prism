@@ -21,6 +21,8 @@ struct PrismGameView: View {
     @State private var showRewardChest = false
     @State private var showSaveDialog = false
     @State private var saveNameInput = ""
+    @State private var mixingLane = MixingLaneState()
+    @State private var flyingBlobs: [FlyingBlob] = []
     @State private var pendingReward: GameState.RewardType? = nil
     @State private var activeCelebration: CelebrationType? = nil
     @State private var glowPulse = false
@@ -65,15 +67,8 @@ struct PrismGameView: View {
                     }
                     .padding(.bottom, 0)
 
-                  // ── Unified card: cat + stats + target + grid + buttons ──
+                  // ── Unified card: stats + target + grid ──
                   ZStack(alignment: .top) {
-                    // Cat behind the card — head peeks above
-                    Image("cat_0095")
-                        .interpolation(.none)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(height: 56)
-
                     VStack(spacing: 0) {
                       // Stats bar — ROUND left, SCORE center, LIVES+HINT right
                       HStack(alignment: .top, spacing: 0) {
@@ -159,30 +154,11 @@ struct PrismGameView: View {
                           .frame(height: 0.5)
                           .padding(.horizontal, 12)
 
-                      // Grid with optional tutorial tooltip + blend animation
+                      // Grid with optional tutorial tooltip
                       ZStack {
                           GridView(game: game, cellSize: cellSize)
 
-                          // Metaball merge overlay — positioned in grid coordinate space
-                          if let merge = game.activeMerge {
-                              let gridViewInset: CGFloat = 6  // matches GridView.inset
-                              BlendAnimationView(
-                                  merge: MergeAnimation(
-                                      posA: merge.posA,
-                                      posB: merge.posB,
-                                      colorA: merge.colorA,
-                                      colorB: merge.colorB,
-                                      resultColor: merge.resultColor,
-                                      cellSize: cellSize,
-                                      spacing: spacing,
-                                      gridInset: gridViewInset
-                                  )
-                              )
-                              .allowsHitTesting(false)
-                              .transition(.identity)
-                          }
-
-                          // Tutorial tooltip on round 1 — clean, centered above hinted tiles
+                          // Tutorial tooltip on round 1
                           if game.showTutorialArrows {
                               tutorialTooltipOverlay(cellSize: cellSize, spacing: spacing)
                                   .allowsHitTesting(false)
@@ -192,15 +168,21 @@ struct PrismGameView: View {
                       .padding(.top, 4)
                       .animation(.easeInOut(duration: 0.3), value: game.showTutorialArrows)
 
+                      // ── Mixing Lane (factory line) ──
+                      MixingLaneView(
+                          lane: mixingLane,
+                          cellSize: cellSize,
+                          gridWidth: maxContentWidth - contentPadding * 2
+                      )
+
                       // (Bottom buttons removed — moved to bottom nav bar)
 
                     } // end card VStack
                     .padding(.horizontal, 4)
-                    .padding(.top, 40)   // push card down so cat face is visible
+                    .padding(.top, 4)
                     .padding(.bottom, 4)
                     .background(
                         glassCard(cornerRadius: 20)
-                            .padding(.top, 40)
                     )
                   } // end ZStack (unified card)
                   .overlay(
@@ -209,7 +191,6 @@ struct PrismGameView: View {
                         phase: aberrationPhase,
                         intensity: game.activeMultiplierSource == .none ? 0 : (glowPulse ? 1.0 : 0.3)
                     )
-                    .padding(.top, 40) // match the card offset
                     .allowsHitTesting(false)
                   )
                   .onChange(of: game.activeMultiplierSource) { _, newSource in
@@ -391,6 +372,21 @@ struct PrismGameView: View {
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
                     cameraZoom = 1.0
                 }
+            }
+        }
+        .onChange(of: game.gameID) { _, _ in
+            // New game — clear the mixing lane
+            mixingLane.reset()
+        }
+        .onChange(of: game.lastBlendEvent) { _, event in
+            guard let event else { return }
+            // Add to mixing lane
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                mixingLane.addBlend(
+                    colorA: event.colorA,
+                    colorB: event.colorB,
+                    resultColor: event.resultColor
+                )
             }
         }
         .onChange(of: game.isGameOver) { _, isOver in
