@@ -105,6 +105,11 @@ struct GridView: View {
             guard let (a, b) = game.blendingPositions else { return false }
             return pos == a || pos == b
         }()
+        // Hide cells involved in metaball merge (overlay draws them instead)
+        let isMerging: Bool = {
+            guard let merge = game.activeMerge else { return false }
+            return pos == merge.posA || pos == merge.posB
+        }()
         let isPopping = game.poppingPositions.contains(pos)
         let isHinted = game.hintPositions.contains(pos)
         let isPoison = game.poisonPositions.contains(pos)
@@ -130,6 +135,7 @@ struct GridView: View {
                 showLabel: game.showColorLabels,
                 blendPreview: blendPreview
             )
+            .opacity(isMerging ? 0 : 1)  // hidden when metaball overlay is active
             .background {
                 if isGolden {
                     RoundedRectangle(cornerRadius: 14)

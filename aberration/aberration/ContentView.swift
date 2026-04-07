@@ -159,9 +159,28 @@ struct PrismGameView: View {
                           .frame(height: 0.5)
                           .padding(.horizontal, 12)
 
-                      // Grid with optional tutorial tooltip
+                      // Grid with optional tutorial tooltip + blend animation
                       ZStack {
                           GridView(game: game, cellSize: cellSize)
+
+                          // Metaball merge overlay — positioned in grid coordinate space
+                          if let merge = game.activeMerge {
+                              let gridViewInset: CGFloat = 6  // matches GridView.inset
+                              BlendAnimationView(
+                                  merge: MergeAnimation(
+                                      posA: merge.posA,
+                                      posB: merge.posB,
+                                      colorA: merge.colorA,
+                                      colorB: merge.colorB,
+                                      resultColor: merge.resultColor,
+                                      cellSize: cellSize,
+                                      spacing: spacing,
+                                      gridInset: gridViewInset
+                                  )
+                              )
+                              .allowsHitTesting(false)
+                              .transition(.identity)
+                          }
 
                           // Tutorial tooltip on round 1 — clean, centered above hinted tiles
                           if game.showTutorialArrows {

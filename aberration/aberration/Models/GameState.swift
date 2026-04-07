@@ -30,6 +30,9 @@ class GameState {
     var poppingPositions: Set<GridPosition> = []
     var showMilestone: Bool = false
 
+    /// Active metaball merge animation (nil when no merge is playing)
+    var activeMerge: MergeAnimation? = nil
+
     /// Positions that were emptied by the last successful match — excluded from next spawn
     private var recentlyEmptiedPositions: Set<GridPosition> = []
 
@@ -652,6 +655,9 @@ class GameState {
         selectedPosition = nil
         isProcessing = false
         isGameOver = false
+        activeMerge = nil
+        blendingPositions = nil
+        poppingPositions = []
     }
 
     // MARK: - Init
@@ -796,25 +802,36 @@ class GameState {
             undoScore = score
         }
 
-        // Phase 1: Pop both tiles up
-        poppingPositions = [posA, posB]
+        // Lift-merge-drop animation — hide source tiles from grid, show overlay
+        blendingPositions = (posA, posB)
 
         Task {
-            // Hold the pop for a beat
-            try? await Task.sleep(for: .milliseconds(100))
+            // Launch the blend animation overlay
+            activeMerge = MergeAnimation(
+                posA: posA,
+                posB: posB,
+                colorA: colorA.color,
+                colorB: colorB.color,
+                resultColor: result.color,
+                cellSize: 0,   // ContentView supplies actual layout
+                spacing: 0,
+                gridInset: 0
+            )
 
-            // Phase 2: Collapse into result
-            poppingPositions = []
-            blendingPositions = (posA, posB)
-
-            try? await Task.sleep(for: .milliseconds(80))
-
+            // Haptic + sound at the merge moment (~550ms into animation)
+            try? await Task.sleep(for: .milliseconds(550))
             HapticManager.blend()
-            // Skip the blend tone on a winning match — let the round-complete sound play clean
             let isMatch = targetColor != nil && result == targetColor!
             if !isMatch {
                 SoundManager.shared.playBlendTone(for: result)
             }
+
+            // Wait for drop + settle to finish (~400ms more)
+            try? await Task.sleep(for: .milliseconds(400))
+
+            // Clear animation state, apply grid changes
+            activeMerge = nil
+            blendingPositions = nil
 
             grid[posA.row][posA.col] = result
             grid[posB.row][posB.col] = nil
@@ -830,7 +847,6 @@ class GameState {
                 StatsManager.shared.recordGoldenTileUsed()
             }
 
-            blendingPositions = nil
             lastBlendPosition = posA
 
             // Track this color as discovered — feeds into background canvas
