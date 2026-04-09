@@ -17,6 +17,19 @@ enum HapticManager {
         set { UserDefaults.standard.set(!newValue, forKey: "chr_haptics_disabled") }
     }
 
+    /// Haptic intensity (0.0 – 1.0), stepped in 0.1 by the UI.
+    /// Multiplied into every haptic event intensity.
+    static var intensity: Float {
+        get {
+            let val = UserDefaults.standard.float(forKey: "chr_haptic_intensity")
+            return val == 0 && !UserDefaults.standard.bool(forKey: "chr_haptic_intensity_set") ? 1.0 : val
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "chr_haptic_intensity")
+            UserDefaults.standard.set(true, forKey: "chr_haptic_intensity_set")
+        }
+    }
+
     // MARK: - Engine
 
     private static var engine: CHHapticEngine? = {
@@ -197,7 +210,28 @@ enum HapticManager {
 
     private static func playPattern(on engine: CHHapticEngine, events: [CHHapticEvent]) {
         do {
-            let pattern = try CHHapticPattern(events: events, parameters: [])
+            // Scale every event's intensity by the user's intensity preference
+            let scaled = events.map { event -> CHHapticEvent in
+                let params = event.eventParameters.map { param -> CHHapticEventParameter in
+                    if param.parameterID == .hapticIntensity {
+                        return CHHapticEventParameter(
+                            parameterID: .hapticIntensity,
+                            value: param.value * intensity
+                        )
+                    }
+                    return CHHapticEventParameter(
+                        parameterID: param.parameterID,
+                        value: param.value
+                    )
+                }
+                return CHHapticEvent(
+                    eventType: event.type,
+                    parameters: params,
+                    relativeTime: event.relativeTime,
+                    duration: event.duration
+                )
+            }
+            let pattern = try CHHapticPattern(events: scaled, parameters: [])
             let player = try engine.makePlayer(with: pattern)
             try player.start(atTime: CHHapticTimeImmediate)
         } catch {

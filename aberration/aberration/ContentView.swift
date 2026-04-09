@@ -36,6 +36,10 @@ struct PrismGameView: View {
     @State private var nextCelebrationIndex: Int = Int.random(in: 0..<CelebrationType.allCases.count)
     /// Work item for auto-dismissing the bottom toast
     @State private var toastDismissWork: DispatchWorkItem? = nil
+    /// Slot machine reel announcer
+    @State private var showRoundAnnouncer = false
+    @State private var announcerRound: Int = 1
+    @State private var announcerColorName: String = ""
 
     var body: some View {
         GeometryReader { geo in
@@ -65,7 +69,7 @@ struct PrismGameView: View {
                             showSettings.toggle()
                         } label: {
                             Image(systemName: "gearshape")
-                                .font(.system(size: 18, weight: .medium))
+                                .font(.system(size: 16, weight: .regular))
                                 .foregroundStyle(theme.iconDefault)
                         }
                         Spacer()
@@ -75,56 +79,94 @@ struct PrismGameView: View {
                             }
                         } label: {
                             Image(systemName: theme.isDark ? "sun.max.fill" : "moon.fill")
-                                .font(.system(size: 18, weight: .medium))
-                                .foregroundStyle(theme.isDark ? Color(hex: 0xF5C542) : Color(hex: 0x8D99AE))
+                                .font(.system(size: 16, weight: .regular))
+                                .foregroundStyle(theme.isDark ? Color(hex: 0xF5C542) : Color(hex: 0x6A6A7A))
                         }
                     }
-                    .padding(.bottom, 0)
+                    .padding(.bottom, 4)
 
-                  // ── Unified card: stats + target + grid ──
-                  ZStack(alignment: .top) {
-                    VStack(spacing: 0) {
-                      // Stats bar — ROUND left, SCORE center, LIVES+HINT right
-                      HStack(alignment: .top, spacing: 0) {
-                          secondaryStat(label: "ROUND", value: "\(game.round)")
-                              .frame(maxWidth: .infinity)
-                          heroStat(label: "SCORE", value: "\(game.score)")
-                              .frame(maxWidth: .infinity)
-                          livesAndHintDisplay
-                              .frame(maxWidth: .infinity)
+                  // ── Floating HUD: score, lives, sphere (not in the card) ──
+
+                  // Score — big number, floating
+                  Text("\(game.score)")
+                      .font(.system(size: 38, weight: .black, design: .rounded))
+                      .foregroundStyle(theme.scoreLarge)
+                      .contentTransition(.numericText())
+                      .animation(.spring(response: 0.3), value: game.score)
+                      .zIndex(2) // score always on top of announcer
+
+                  // Lives dots — white, glowing
+                  livesDotsDisplay
+                      .padding(.top, 4)
+                      .padding(.bottom, 2)
+                      .zIndex(2)
+
+                  // Sphere + announcer zone
+                  ZStack {
+                      // Slot machine reel announcer — sits behind/around the sphere
+                      if showRoundAnnouncer {
+                          RoundAnnouncerView(
+                              round: announcerRound,
+                              colorName: announcerColorName,
+                              targetColor: game.targetColor?.color ?? .white
+                          ) {
+                              showRoundAnnouncer = false
+                          }
+                          .transition(.opacity)
                       }
-                      .padding(.horizontal, 12)
-                      .padding(.vertical, 6)
 
-                      // Target color swatch + name
+                      // Target color — glowing 3D sphere + name
                       if let target = game.targetColor {
-                          VStack(spacing: 4) {
-                              RoundedRectangle(cornerRadius: 12)
-                                  .fill(
-                                      LinearGradient(
-                                          colors: [target.highlightColor, target.color],
-                                          startPoint: .topLeading,
-                                          endPoint: .bottomTrailing
+                          VStack(spacing: 6) {
+                              // Glowing sphere
+                              ZStack {
+                                  // Outer glow
+                                  Circle()
+                                      .fill(target.color.opacity(0.3))
+                                      .frame(width: cellSize * 1.6, height: cellSize * 1.6)
+                                      .blur(radius: 20)
+
+                                  // Main sphere body
+                                  Circle()
+                                      .fill(
+                                          RadialGradient(
+                                              colors: [
+                                                  target.highlightColor.opacity(0.9),
+                                                  target.color,
+                                                  target.color.opacity(0.8)
+                                              ],
+                                              center: .init(x: 0.35, y: 0.3),
+                                              startRadius: 0,
+                                              endRadius: cellSize * 0.6
+                                          )
                                       )
-                                  )
-                                  .overlay(
-                                      LinearGradient(
-                                          colors: [.white.opacity(0.4), .white.opacity(0.05), .clear],
-                                          startPoint: .topLeading,
-                                          endPoint: .center
+                                      .frame(width: cellSize * 1.2, height: cellSize * 1.2)
+
+                                  // Specular highlight (top-left)
+                                  Circle()
+                                      .fill(
+                                          RadialGradient(
+                                              colors: [.white.opacity(0.6), .white.opacity(0.0)],
+                                              center: .init(x: 0.3, y: 0.25),
+                                              startRadius: 0,
+                                              endRadius: cellSize * 0.4
+                                          )
                                       )
-                                      .clipShape(RoundedRectangle(cornerRadius: 12))
-                                  )
-                                  .overlay(
-                                      RoundedRectangle(cornerRadius: 12)
-                                          .strokeBorder(.white.opacity(0.5), lineWidth: 0.5)
-                                  )
-                                  .frame(width: cellSize * 1.1, height: cellSize * 1.1)
-                                  .overlay(
-                                      RoundedRectangle(cornerRadius: 12)
-                                          .strokeBorder(target.color.opacity(0.35), lineWidth: 2)
-                                  )
-                                  .shadow(color: target.color.opacity(0.15), radius: 6, y: 2)
+                                      .frame(width: cellSize * 1.2, height: cellSize * 1.2)
+
+                                  // Rim light (bottom edge)
+                                  Circle()
+                                      .stroke(
+                                          LinearGradient(
+                                              colors: [.clear, .white.opacity(0.15), .clear],
+                                              startPoint: .top,
+                                              endPoint: .bottom
+                                          ),
+                                          lineWidth: 1
+                                      )
+                                      .frame(width: cellSize * 1.2, height: cellSize * 1.2)
+                              }
+                              .shadow(color: target.color.opacity(0.5), radius: 16, y: 4)
 
                               Text(target.name.uppercased())
                                   .font(.system(size: 13, weight: .bold, design: .rounded))
@@ -132,11 +174,11 @@ struct PrismGameView: View {
                                   .tracking(1.5)
                                   .frame(maxWidth: .infinity)
 
-                              // Selection hint (formula area) — fixed frame, opacity-only transitions
+                              // Selection hint (formula area)
                               ZStack {
                                   if let sel = game.selectedColor {
                                       HStack(spacing: 5) {
-                                          RoundedRectangle(cornerRadius: 3)
+                                          Circle()
                                               .fill(sel.color)
                                               .frame(width: 10, height: 10)
                                           Text("\(sel.name) + ?")
@@ -157,17 +199,15 @@ struct PrismGameView: View {
                               .frame(height: 16)
                               .animation(.easeInOut(duration: 0.15), value: game.selectedPosition)
                           }
-                          .padding(.bottom, 6)
+                          .padding(.bottom, 4)
                           .id(target.wheelIndex)
                           .transition(.opacity)
                       }
+                  } // end sphere + announcer zone
 
-                      // Thin separator
-                      Rectangle()
-                          .fill(theme.divider.opacity(theme.dividerOpacity))
-                          .frame(height: 0.5)
-                          .padding(.horizontal, 12)
-
+                  // ── Grid card (glass container for grid + mixing lane only) ──
+                  ZStack(alignment: .top) {
+                    VStack(spacing: 0) {
                       // Grid with optional tutorial tooltip
                       ZStack {
                           GridView(game: game, cellSize: cellSize)
@@ -179,26 +219,25 @@ struct PrismGameView: View {
                                   .transition(.opacity)
                           }
                       }
-                      .padding(.top, 4)
+                      .padding(.top, 6)
                       .animation(.easeInOut(duration: 0.3), value: game.showTutorialArrows)
 
-                      // ── Mixing Lane (factory line) ──
+                      // ── Mixing Lane (factory line) — smaller tiles ──
                       MixingLaneView(
                           lane: mixingLane,
-                          cellSize: cellSize,
+                          cellSize: cellSize * 0.6,
                           gridWidth: maxContentWidth - contentPadding * 2
                       )
 
-                      // (Bottom buttons removed — moved to bottom nav bar)
-
-                    } // end card VStack
+                    } // end grid card VStack
                     .padding(.horizontal, 4)
                     .padding(.top, 4)
                     .padding(.bottom, 4)
                     .background(
                         glassCard(cornerRadius: 20)
                     )
-                  } // end ZStack (unified card)
+
+                  } // end grid card ZStack
                   .overlay(
                     ChromaticAberrationBorder(
                         cornerRadius: 20,
@@ -368,7 +407,16 @@ struct PrismGameView: View {
             }
         }
         .background(theme.screenBg)
+        .preferredColorScheme(theme.isDark ? .dark : .light)
         .onChange(of: game.completedRoundCount) { _, _ in
+            // Trigger slot machine reel announcer for the new round
+            if let target = game.targetColor {
+                announcerRound = game.round
+                announcerColorName = target.name
+                withAnimation(.easeOut(duration: 0.3)) {
+                    showRoundAnnouncer = true
+                }
+            }
             // Countdown-based celebration: triggers after 1–6 rounds, then resets
             roundsUntilCelebration -= 1
             if roundsUntilCelebration <= 0 {
@@ -666,10 +714,24 @@ struct PrismGameView: View {
 
     // MARK: - Settings Sheet
 
+    // MARK: - Slider state (local, synced to managers)
+    @State private var sfxVolumeLocal: Double = Double(SoundManager.shared.sfxVolume)
+    @State private var musicVolumeLocal: Double = Double(SoundManager.shared.musicVolume)
+    @State private var hapticIntensityLocal: Double = Double(HapticManager.intensity)
+
     private var settingsView: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 16) {
+                VStack(spacing: 20) {
+
+                    // ── Title ──
+                    Text("Settings")
+                        .font(.system(size: 34, weight: .regular, design: .serif))
+                        .foregroundStyle(theme.textPrimary)
+                        .tracking(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 8)
+
                     // ── Preferences ──
                     VStack(spacing: 0) {
                         settingsSectionHeader("Preferences")
@@ -679,92 +741,65 @@ struct PrismGameView: View {
                             HStack(spacing: 12) {
                                 Image(systemName: "eye")
                                     .font(.system(size: 15, weight: .medium))
-                                    .foregroundStyle(Color(hex: 0xA080E0))
+                                    .foregroundStyle(theme.textSecondary)
                                     .frame(width: 24)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Color Assistance")
-                                        .font(.system(size: 14, weight: .medium, design: .rounded))
-                                        .foregroundStyle(theme.textPrimaryAlt)
+                                        .font(.system(size: 15, weight: .medium, design: .default))
+                                        .foregroundStyle(theme.textPrimary)
                                     Text("Show color names on tiles")
-                                        .font(.system(size: 11, weight: .regular, design: .rounded))
-                                        .foregroundStyle(theme.textMuted)
+                                        .font(.system(size: 12, weight: .light, design: .default))
+                                        .foregroundStyle(theme.textSecondary)
                                 }
                                 Spacer()
                                 Toggle("", isOn: Binding(
                                     get: { game.showColorLabels },
                                     set: { game.showColorLabels = $0 }
                                 ))
-                                .tint(Color(hex: 0xA080E0))
+                                .tint(theme.textSecondary)
                                 .labelsHidden()
                             }
                             .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
+                            .padding(.vertical, 14)
 
                             settingsDivider()
 
-                            // Sound Effects
-                            HStack(spacing: 12) {
-                                Image(systemName: "speaker.wave.2.fill")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundStyle(Color(hex: 0xE8876B))
-                                    .frame(width: 24)
-                                Text("Sound Effects")
-                                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                                    .foregroundStyle(theme.textPrimaryAlt)
-                                Spacer()
-                                Toggle("", isOn: Binding(
-                                    get: { SoundManager.shared.sfxEnabled },
-                                    set: { SoundManager.shared.sfxEnabled = $0 }
-                                ))
-                                .tint(Color(hex: 0xE8876B))
-                                .labelsHidden()
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
+                            // Sound Effects — slider
+                            settingsSliderRow(
+                                icon: "speaker.wave.2",
+                                label: "Sound Effects",
+                                value: $sfxVolumeLocal,
+                                onChange: {
+                                    SoundManager.shared.sfxVolume = Float(sfxVolumeLocal)
+                                    SoundManager.shared.sfxEnabled = sfxVolumeLocal > 0
+                                }
+                            )
 
                             settingsDivider()
 
-                            // Music
-                            HStack(spacing: 12) {
-                                Image(systemName: "music.note")
-                                    .font(.system(size: 15, weight: .medium))
-                                    .foregroundStyle(Color(hex: 0xD4724A))
-                                    .frame(width: 24)
-                                Text("Music")
-                                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                                    .foregroundStyle(theme.textPrimaryAlt)
-                                Spacer()
-                                Toggle("", isOn: Binding(
-                                    get: { SoundManager.shared.musicEnabled },
-                                    set: { SoundManager.shared.musicEnabled = $0 }
-                                ))
-                                .tint(Color(hex: 0xD4724A))
-                                .labelsHidden()
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
+                            // Music — slider
+                            settingsSliderRow(
+                                icon: "music.note",
+                                label: "Music",
+                                value: $musicVolumeLocal,
+                                onChange: {
+                                    SoundManager.shared.musicVolume = Float(musicVolumeLocal)
+                                    SoundManager.shared.musicEnabled = musicVolumeLocal > 0
+                                }
+                            )
 
                             settingsDivider()
 
-                            // Haptics
-                            HStack(spacing: 12) {
-                                Image(systemName: "hand.tap.fill")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundStyle(Color(hex: 0xFF5E6C))
-                                    .frame(width: 24)
-                                Text("Haptics")
-                                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                                    .foregroundStyle(theme.textPrimaryAlt)
-                                Spacer()
-                                Toggle("", isOn: Binding(
-                                    get: { HapticManager.isEnabled },
-                                    set: { HapticManager.isEnabled = $0 }
-                                ))
-                                .tint(Color(hex: 0xFF5E6C))
-                                .labelsHidden()
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
+                            // Haptics — slider
+                            settingsSliderRow(
+                                icon: "hand.tap",
+                                label: "Haptics",
+                                value: $hapticIntensityLocal,
+                                onChange: {
+                                    HapticManager.intensity = Float(hapticIntensityLocal)
+                                    HapticManager.isEnabled = hapticIntensityLocal > 0
+                                }
+                            )
                         }
                         .background(settingsCardBackground)
                     }
@@ -774,54 +809,24 @@ struct PrismGameView: View {
                         settingsSectionHeader("Saved Games")
 
                         VStack(spacing: 0) {
-                            // Save Current Game
                             Button {
                                 saveNameInput = "Round \(game.round)"
                                 showSaveDialog = true
                             } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "square.and.arrow.down.fill")
-                                        .font(.system(size: 14, weight: .medium))
-                                        .foregroundStyle(Color(hex: 0x4CAF50))
-                                        .frame(width: 24)
-                                    Text("Save Current Game")
-                                        .font(.system(size: 14, weight: .medium, design: .rounded))
-                                        .foregroundStyle(theme.textPrimaryAlt)
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .font(.system(size: 12, weight: .medium))
-                                        .foregroundStyle(theme.textQuaternary)
-                                }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 12)
+                                settingsNavRow(icon: "square.and.arrow.down", label: "Save Current Game")
                             }
                             .disabled(game.isGameOver || game.round < 1)
                             .opacity(game.isGameOver || game.round < 1 ? 0.4 : 1)
 
                             settingsDivider()
 
-                            // Load Saved Game
                             NavigationLink {
                                 SavedGamesView(isPresented: $showSettings) { data in
                                     game.loadFromSaveData(data)
                                     showSettings = false
                                 }
                             } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "folder.fill")
-                                        .font(.system(size: 14, weight: .medium))
-                                        .foregroundStyle(Color(hex: 0x2196F3))
-                                        .frame(width: 24)
-                                    Text("Load Saved Game")
-                                        .font(.system(size: 14, weight: .medium, design: .rounded))
-                                        .foregroundStyle(theme.textPrimaryAlt)
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .font(.system(size: 12, weight: .medium))
-                                        .foregroundStyle(theme.textQuaternary)
-                                }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 12)
+                                settingsNavRow(icon: "folder", label: "Load Saved Game")
                             }
                         }
                         .background(settingsCardBackground)
@@ -832,23 +837,17 @@ struct PrismGameView: View {
                         settingsSectionHeader("How to Play")
 
                         VStack(spacing: 0) {
-                            settingsRulesRow(icon: "drop.fill", color: Color(hex: 0xD4724A),
-                                             text: "Tap two tiles to mix their colors")
+                            settingsRulesRow(icon: "drop.fill", text: "Tap two tiles to mix their colors")
                             settingsDivider()
-                            settingsRulesRow(icon: "target", color: Color(hex: 0xE63946),
-                                             text: "Mix colors to match the target above the board")
+                            settingsRulesRow(icon: "target", text: "Mix colors to match the target above")
                             settingsDivider()
-                            settingsRulesRow(icon: "arrow.triangle.merge", color: Color(hex: 0xE8876B),
-                                             text: "Red, Yellow, and Blue are primary — mix them to make any color")
+                            settingsRulesRow(icon: "paintpalette", text: "Red, Yellow, Blue are primary — mix them to make any color")
                             settingsDivider()
-                            settingsRulesRow(icon: "heart.fill", color: Color(hex: 0xFF5E6C),
-                                             text: "3 lives. Spend one to retry a round")
+                            settingsRulesRow(icon: "heart.fill", text: "3 lives. Spend one to retry a round")
                             settingsDivider()
-                            settingsRulesRow(icon: "heart.circle.fill", color: Color(hex: 0xA080E0),
-                                             text: "Survive 10 rounds without losing a life to earn a bonus life")
+                            settingsRulesRow(icon: "star.fill", text: "Survive 10 rounds for a bonus life")
                             settingsDivider()
-                            settingsRulesRow(icon: "arrow.counterclockwise", color: Color(hex: 0xF59E0B),
-                                             text: "Undo takes back your last move, once per round")
+                            settingsRulesRow(icon: "arrow.uturn.backward", text: "Undo takes back your last move")
                         }
                         .background(settingsCardBackground)
                     }
@@ -858,16 +857,22 @@ struct PrismGameView: View {
                 .padding(.bottom, 24)
             }
             .background(theme.settingsBg)
-            .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { showSettings = false }
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .font(.system(size: 15, weight: .medium, design: .default))
+                        .foregroundStyle(theme.textSecondary)
                 }
             }
         }
         .presentationDetents([.large])
+        .preferredColorScheme(theme.isDark ? .dark : .light)
+        .onAppear {
+            sfxVolumeLocal = Double(SoundManager.shared.sfxVolume)
+            musicVolumeLocal = Double(SoundManager.shared.musicVolume)
+            hapticIntensityLocal = Double(HapticManager.intensity)
+        }
         .alert("Save Game", isPresented: $showSaveDialog) {
             TextField("Save name", text: $saveNameInput)
             Button("Cancel", role: .cancel) { }
@@ -882,15 +887,59 @@ struct PrismGameView: View {
         }
     }
 
-    private func settingsRulesRow(icon: String, color: Color, text: String) -> some View {
+    // MARK: - Settings Subviews
+
+    private func settingsSliderRow(icon: String, label: String, value: Binding<Double>, onChange: @escaping () -> Void) -> some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(theme.textSecondary)
+                    .frame(width: 24)
+                Text(label)
+                    .font(.system(size: 15, weight: .medium, design: .default))
+                    .foregroundStyle(theme.textPrimary)
+                Spacer()
+                Text("\(Int(value.wrappedValue * 10))")
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundStyle(theme.textSecondary)
+                    .frame(width: 24, alignment: .trailing)
+            }
+            Slider(value: value, in: 0...1, step: 0.1)
+                .tint(theme.textSecondary)
+                .onChange(of: value.wrappedValue) { _, _ in onChange() }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    private func settingsNavRow(icon: String, label: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 15))
-                .foregroundStyle(color)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(theme.textSecondary)
+                .frame(width: 24)
+            Text(label)
+                .font(.system(size: 15, weight: .medium, design: .default))
+                .foregroundStyle(theme.textPrimary)
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(theme.textTertiary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+    }
+
+    private func settingsRulesRow(icon: String, text: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 14))
+                .foregroundStyle(theme.textSecondary)
                 .frame(width: 24, alignment: .center)
             Text(text)
-                .font(.system(size: 14, weight: .regular, design: .rounded))
-                .foregroundStyle(theme.textPrimaryAlt)
+                .font(.system(size: 14, weight: .regular, design: .default))
+                .foregroundStyle(theme.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
         }
@@ -900,9 +949,9 @@ struct PrismGameView: View {
 
     private func settingsSectionHeader(_ title: String) -> some View {
         Text(title.uppercased())
-            .font(.system(size: 11, weight: .bold, design: .rounded))
-            .foregroundStyle(theme.textTertiary)
-            .tracking(2)
+            .font(.system(size: 11, weight: .light, design: .default))
+            .foregroundStyle(theme.textSecondary)
+            .tracking(3)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.leading, 4)
             .padding(.bottom, 6)
@@ -1010,15 +1059,16 @@ struct PrismGameView: View {
                         .padding(.bottom, 8)
 
                     Text("Stillhue")
-                        .font(.system(size: 42, weight: .regular, design: .serif))
+                        .font(.system(size: 46, weight: .regular, design: .serif))
                         .foregroundStyle(theme.textPrimary)
-                        .tracking(2)
-                        .padding(.bottom, 2)
+                        .tracking(3)
+                        .padding(.bottom, 4)
 
-                    Text("A color-mixing puzzle")
-                        .font(.system(size: 14, weight: .medium, design: .rounded))
-                        .foregroundStyle(theme.textMuted)
-                        .padding(.bottom, 28)
+                    Text("color-mixing puzzle")
+                        .font(.system(size: 18, weight: .light, design: .default))
+                        .foregroundStyle(theme.textSecondary)
+                        .tracking(4)
+                        .padding(.bottom, 32)
 
                     // Game mode cards
                     VStack(spacing: 12) {
@@ -1027,32 +1077,10 @@ struct PrismGameView: View {
                             MusicManager.shared.setGameplayVolume()
                             showStartScreen = false
                         } label: {
-                            HStack(spacing: 14) {
-                                // Color circle icon
-                                ZStack {
-                                    Circle()
-                                        .fill(
-                                            LinearGradient(
-                                                colors: [Color(hex: 0xD4724A), Color(hex: 0xE8876B)],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            )
-                                        )
-                                        .frame(width: 42, height: 42)
-                                    Image(systemName: "paintpalette.fill")
-                                        .font(.system(size: 18))
-                                        .foregroundStyle(.white)
-                                }
-
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Classic")
-                                        .font(.system(size: 17, weight: .semibold, design: .rounded))
-                                        .foregroundStyle(theme.textPrimary)
-                                    Text("Mix colors, beat rounds, chase your high score")
-                                        .font(.system(size: 12, weight: .regular, design: .rounded))
-                                        .foregroundStyle(theme.textSecondary)
-                                        .lineLimit(1)
-                                }
+                            HStack {
+                                Text("Classic")
+                                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(theme.textPrimary)
 
                                 Spacer()
 
@@ -1060,20 +1088,20 @@ struct PrismGameView: View {
                                     .font(.system(size: 13, weight: .semibold))
                                     .foregroundStyle(theme.textQuaternary)
                             }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 14)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 15)
                             .background(
-                                RoundedRectangle(cornerRadius: 16)
+                                RoundedRectangle(cornerRadius: 14)
                                     .fill(theme.cardFill.opacity(theme.cardFillOpacity))
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: 16)
+                                        RoundedRectangle(cornerRadius: 14)
                                             .fill(theme.isDark ? .ultraThinMaterial : .thinMaterial)
                                     )
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: 16)
+                                        RoundedRectangle(cornerRadius: 14)
                                             .strokeBorder(theme.cardBorderColor.opacity(theme.cardBorderOpacity), lineWidth: 0.5)
                                     )
-                                    .shadow(color: .black.opacity(theme.shadowOpacity), radius: 12, y: 4)
+                                    .shadow(color: .black.opacity(theme.shadowOpacity), radius: 8, y: 3)
                             )
                         }
 
@@ -1081,38 +1109,16 @@ struct PrismGameView: View {
                         Button {
                             showDailyPuzzle = true
                         } label: {
-                            HStack(spacing: 14) {
-                                ZStack {
-                                    Circle()
-                                        .fill(
-                                            LinearGradient(
-                                                colors: [Color(hex: 0x5A9BC7), Color(hex: 0x8D99AE)],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            )
-                                        )
-                                        .frame(width: 42, height: 42)
-                                    Image(systemName: "calendar")
-                                        .font(.system(size: 18))
-                                        .foregroundStyle(.white)
-                                }
+                            HStack {
+                                Text("Hue of the Day")
+                                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(theme.textPrimary)
 
-                                VStack(alignment: .leading, spacing: 2) {
-                                    HStack(spacing: 6) {
-                                        Text("Hue of the Day")
-                                            .font(.system(size: 17, weight: .semibold, design: .rounded))
-                                            .foregroundStyle(theme.textPrimary)
-                                        // Daily indicator dot
-                                        if !DailyPuzzleState().hasPlayedToday {
-                                            Circle()
-                                                .fill(Color(hex: 0xFF5E6C))
-                                                .frame(width: 7, height: 7)
-                                        }
-                                    }
-                                    Text("Mix 3 tiles to match today's color")
-                                        .font(.system(size: 12, weight: .regular, design: .rounded))
-                                        .foregroundStyle(theme.textSecondary)
-                                        .lineLimit(1)
+                                // Daily indicator dot
+                                if !DailyPuzzleState().hasPlayedToday {
+                                    Circle()
+                                        .fill(Color(hex: 0xFF5E6C))
+                                        .frame(width: 7, height: 7)
                                 }
 
                                 Spacer()
@@ -1121,42 +1127,31 @@ struct PrismGameView: View {
                                     .font(.system(size: 13, weight: .semibold))
                                     .foregroundStyle(theme.textQuaternary)
                             }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 14)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 15)
                             .background(
-                                RoundedRectangle(cornerRadius: 16)
+                                RoundedRectangle(cornerRadius: 14)
                                     .fill(theme.cardFill.opacity(theme.cardFillOpacity))
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: 16)
+                                        RoundedRectangle(cornerRadius: 14)
                                             .fill(theme.isDark ? .ultraThinMaterial : .thinMaterial)
                                     )
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: 16)
+                                        RoundedRectangle(cornerRadius: 14)
                                             .strokeBorder(theme.cardBorderColor.opacity(theme.cardBorderOpacity), lineWidth: 0.5)
                                     )
-                                    .shadow(color: .black.opacity(theme.shadowOpacity), radius: 12, y: 4)
+                                    .shadow(color: .black.opacity(theme.shadowOpacity), radius: 8, y: 3)
                             )
                         }
                     }
                     .padding(.horizontal, 24)
 
                     Spacer()
-
-                    // How to Play — bottom link
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            showHowToPlay = true
-                        }
-                    } label: {
-                        Text("How to Play")
-                            .font(.system(size: 14, weight: .medium, design: .rounded))
-                            .foregroundStyle(theme.textTertiary)
-                    }
-                    .padding(.bottom, 40)
                 }
                 .transition(.opacity)
             }
         }
+        .preferredColorScheme(theme.isDark ? .dark : .light)
         .onAppear {
             MusicManager.shared.setMenuVolume()
             MusicManager.shared.startTheme()
@@ -1306,36 +1301,27 @@ struct PrismGameView: View {
 
     /// Lives teardrops with a hint button tucked underneath.
     private var livesAndHintDisplay: some View {
-        VStack(spacing: 3) {
-            Text("LIVES")
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                .foregroundStyle(theme.textSecondary)
-                .tracking(1.5)
-            HStack(spacing: 4) {
+        livesDotsDisplay
+    }
+
+    /// Lives as glowing dots (white on dark, dark on light) + hint button
+    private var livesDotsDisplay: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 let maxSlots = max(3, game.lives)
+                let activeColor: Color = theme.isDark ? .white : Color(hex: 0x3A3A4A)
+                let glowColor: Color = theme.isDark ? .white : Color(hex: 0x3A3A4A)
                 ForEach(0..<maxSlots, id: \.self) { i in
-                    Teardrop()
-                        .fill(
-                            i < game.lives
-                                ? LinearGradient(
-                                    colors: [Color(hex: 0xFF5E6C), Color(hex: 0xA080E0)],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                  )
-                                : LinearGradient(
-                                    colors: [theme.textQuaternary, theme.textTertiary],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                  )
-                        )
-                        .frame(width: 14, height: 18)
-                        .opacity(i < game.lives ? 1.0 : 0.45)
+                    Circle()
+                        .fill(i < game.lives ? activeColor : theme.textQuaternary.opacity(0.3))
+                        .frame(width: 8, height: 8)
+                        .shadow(color: i < game.lives ? glowColor.opacity(theme.isDark ? 0.8 : 0.3) : .clear, radius: 4)
+                        .shadow(color: i < game.lives ? glowColor.opacity(theme.isDark ? 0.4 : 0.0) : .clear, radius: 8)
                 }
             }
-            .frame(height: 22)
             .animation(.spring(response: 0.3), value: game.lives)
 
-            // Hint button — compact, right next to lives
+            // Hint button — compact
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     _ = game.useHintToken()
@@ -1349,7 +1335,7 @@ struct PrismGameView: View {
                             .font(.system(size: 10, weight: .bold))
                     }
                 }
-                .foregroundStyle(game.hintTokens > 0 ? Color(hex: 0x5A9BC7) : theme.textQuaternary)
+                .foregroundStyle(game.hintTokens > 0 ? Color(hex: 0x5A9BC7) : theme.textTertiary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
                 .background(
@@ -1383,22 +1369,21 @@ struct PrismGameView: View {
                 }
             }
 
-            // Home (center, larger — active/prominent)
+            // Home (center — active/prominent)
             Button {
                 showStartScreen = true
                 MusicManager.shared.setMenuVolume()
             } label: {
-                VStack(spacing: 2) {
-                    Image(systemName: "house")
-                        .font(.system(size: 22, weight: .medium))
+                VStack(spacing: 3) {
+                    Image(systemName: "house.fill")
+                        .font(.system(size: 18, weight: .medium))
                         .foregroundStyle(theme.navIconActive)
-                        .shadow(color: theme.isDark ? theme.navIconActive.opacity(0.3) : .clear, radius: 4)
                     Text("Home")
-                        .font(.system(size: 9, weight: .medium, design: .rounded))
+                        .font(.system(size: 9, weight: .semibold, design: .rounded))
                         .foregroundStyle(theme.navIconActive)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
+                .padding(.vertical, 8)
             }
 
             // Achievements
@@ -1419,15 +1404,14 @@ struct PrismGameView: View {
                 showShareSheet = true
             }
         }
-        .padding(.top, 6)
-        .padding(.bottom, 2)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
         .background(
-            Rectangle()
-                .fill(.ultraThinMaterial)
+            theme.screenBg.opacity(0.95)
                 .overlay(
                     VStack {
                         Rectangle()
-                            .fill(theme.navBarDivider.opacity(theme.dividerOpacity))
+                            .fill(theme.cardBorderColor.opacity(0.15))
                             .frame(height: 0.5)
                         Spacer()
                     }
@@ -1438,16 +1422,16 @@ struct PrismGameView: View {
 
     private func navBarButton(icon: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(spacing: 2) {
+            VStack(spacing: 3) {
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.system(size: 16, weight: .regular))
                     .foregroundStyle(theme.navIconInactive)
                 Text(label)
                     .font(.system(size: 9, weight: .medium, design: .rounded))
                     .foregroundStyle(theme.navIconInactive)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
+            .padding(.vertical, 8)
         }
     }
 

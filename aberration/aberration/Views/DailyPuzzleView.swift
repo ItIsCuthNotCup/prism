@@ -155,6 +155,7 @@ struct DailyPuzzleView: View {
                 .allowsHitTesting(false)
             }
         }
+        .preferredColorScheme(theme.isDark ? .dark : .light)
         .onAppear {
             MusicManager.shared.setGameplayVolume()
         }
@@ -581,6 +582,7 @@ struct DailyPuzzleView: View {
             }
         }
         .presentationDetents([.large])
+        .preferredColorScheme(theme.isDark ? .dark : .light)
     }
 
     private func dailyRulesRow(icon: String, color: Color, text: String) -> some View {

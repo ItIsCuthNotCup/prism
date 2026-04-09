@@ -133,17 +133,16 @@ struct GridView: View {
             )
             .background {
                 // Colored bloom glow behind filled tiles (dark mode only)
+                // Uses shadow instead of blur for much cheaper GPU compositing
                 if theme.tileGlowOpacity > 0 {
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(tileColor.color.opacity(theme.tileGlowOpacity))
-                        .blur(radius: theme.tileGlowRadius)
-                        .scaleEffect(1.15)
+                        .fill(tileColor.color.opacity(theme.tileGlowOpacity * 0.6))
+                        .shadow(color: tileColor.color.opacity(theme.tileGlowOpacity), radius: theme.tileGlowRadius, y: 0)
                 }
                 if isGolden {
                     RoundedRectangle(cornerRadius: 14)
-                        .fill(Color(hex: 0xFFD700).opacity(0.5))
-                        .blur(radius: 8)
-                        .scaleEffect(1.25)
+                        .fill(Color(hex: 0xFFD700).opacity(0.3))
+                        .shadow(color: Color(hex: 0xFFD700).opacity(0.5), radius: 8, y: 0)
                 }
             }
             .overlay(alignment: .topTrailing) {

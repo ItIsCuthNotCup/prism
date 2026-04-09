@@ -53,6 +53,7 @@ struct AwardsContainerView: View {
                 .tabViewStyle(.page(indexDisplayMode: .never))
             }
         }
+        .preferredColorScheme(theme.isDark ? .dark : .light)
     }
 
     private var pagePicker: some View {
@@ -62,7 +63,7 @@ struct AwardsContainerView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(theme.isDark ? Color(hex: 0x2A2A32) : Color(hex: 0xEEEEF0))
+                .fill(theme.isDark ? Color(hex: 0x2A2A2E) : Color(hex: 0xEEEEF0))
         )
     }
 
@@ -378,7 +379,7 @@ struct StatsPageView: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(theme.isDark ? Color(hex: 0x2A2A32) : Color(hex: 0xEEEEF0))
+                    .fill(theme.isDark ? Color(hex: 0x2A2A2E) : Color(hex: 0xEEEEF0))
             )
 
             if selectedSub == 0 {
@@ -442,7 +443,7 @@ struct StatsPageView: View {
                         GeometryReader { geo in
                             ZStack(alignment: .leading) {
                                 RoundedRectangle(cornerRadius: 4)
-                                    .fill(theme.isDark ? Color(hex: 0x2A2A32) : Color(hex: 0xEEEEF0))
+                                    .fill(theme.isDark ? Color(hex: 0x2A2A2E) : Color(hex: 0xEEEEF0))
                                 RoundedRectangle(cornerRadius: 4)
                                     .fill(
                                         LinearGradient(

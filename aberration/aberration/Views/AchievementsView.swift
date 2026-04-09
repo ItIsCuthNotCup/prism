@@ -118,6 +118,7 @@ struct AchievementsView: View {
                 }
             }
         }
+        .preferredColorScheme(theme.isDark ? .dark : .light)
     }
 
     // MARK: - Achievement Tile

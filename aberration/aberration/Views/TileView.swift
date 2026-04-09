@@ -119,12 +119,11 @@ struct TileView: View {
             .opacity(isBlending ? 0.5 : 1.0)
             .shadow(
                 color: isHinted ? color.color.opacity(hintGlow ? 0.6 : 0.1) :
-                       (isMatched ? color.color.opacity(0.6) :
-                       (isSelected ? color.color.opacity(0.5) :
-                       color.color.opacity(0.2))),
-                radius: isHinted ? (hintGlow ? 10 : 3) :
-                        (isMatched ? 12 : (isSelected ? 8 : 4)),
-                y: isHinted ? 0 : 2
+                       (isMatched || isSelected ? color.color.opacity(0.5) :
+                       .clear),
+                radius: isHinted ? (hintGlow ? 8 : 3) :
+                        (isMatched || isSelected ? 6 : 0),
+                y: isHinted ? 0 : 1
             )
             .onAppear {
                 if isHinted {

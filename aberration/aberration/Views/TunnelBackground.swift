@@ -216,7 +216,7 @@ struct TunnelBackground: View {
             // --- Layer 1: Grey dot grid (graph paper, always present) ---
             let isDark = AppTheme.shared.isDark
             let greyAlpha = max(isDark ? 0.04 : 0.08, (isDark ? 0.15 : 0.30) - CGFloat(depth) * 0.012)
-            let dotSpacing: CGFloat = 20.0
+            let dotSpacing: CGFloat = 28.0
             let dotRadius: CGFloat = 1.2
             let dotBrightness: CGFloat = isDark ? 0.65 : 0.35
 
@@ -267,6 +267,7 @@ struct TunnelBackground: View {
                          at: pos, radius: radius, color: color)
             }
         }
+        .drawingGroup()   // Rasterize to Metal texture — avoids re-executing Canvas on parent redraws
         .ignoresSafeArea()
         .onChange(of: pulseID) { _, _ in
             // Round ended — new pattern with new seed

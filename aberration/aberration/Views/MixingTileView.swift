@@ -24,6 +24,7 @@ struct MixingTileView: View {
     private let cornerRadius: CGFloat = 12
     private var theme: AppTheme { AppTheme.shared }
 
+
     // MARK: - Per-tile deterministic RNG
 
     private var seed: UInt64 {
@@ -44,12 +45,17 @@ struct MixingTileView: View {
         if tile.startDate == nil {
             emptyGlass
         } else {
-            TimelineView(.animation) { timeline in
-                let elapsed = timeline.date.timeIntervalSince(tile.startDate ?? timeline.date)
-                let progress = min(elapsed / tile.swirlDuration, 1.0)
-                liquidGlass(elapsed: elapsed, progress: progress)
+            TimelineView(.periodic(from: Date(timeIntervalSinceReferenceDate: 0), by: 1.0 / 15.0)) { timeline in
+                mixingContent(date: timeline.date)
             }
         }
+    }
+
+    /// Extracted to avoid ViewBuilder limitations with `let` deferred init.
+    private func mixingContent(date: Date) -> some View {
+        let elapsed = date.timeIntervalSince(tile.startDate ?? date)
+        let progress = min(elapsed / tile.swirlDuration, 1.0)
+        return liquidGlass(elapsed: elapsed, progress: progress)
     }
 
     // MARK: - Empty glass
@@ -117,72 +123,76 @@ struct MixingTileView: View {
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
 
             // === The fluid ===
-            GeometryReader { geo in
-                let w = geo.size.width
-                let h = geo.size.height
-                let fillH = h * fillLevel
+            if progress >= 1.0 {
+                // Settled — just solid result color, no Canvas/blur needed
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(tile.resultColor)
+            } else {
+                GeometryReader { geo in
+                    let w = geo.size.width
+                    let h = geo.size.height
+                    let fillH = max(h * fillLevel, 1)
 
-                VStack(spacing: 0) {
-                    Spacer()
-                    ZStack {
-                        // Color A — fractures and crosses into B's territory
-                        fluidLayer(
-                            color: tile.colorA,
-                            progress: progress,
-                            elapsed: elapsed,
-                            vortex: vortexAngle,
-                            width: w,
-                            height: fillH,
-                            seedOffset: 0,
-                            originX: 0.2,
-                            blurRadius: w * 0.15
-                        )
+                    VStack(spacing: 0) {
+                        Spacer()
+                        ZStack {
+                            // Color A — fractures and crosses into B's territory
+                            fluidLayer(
+                                color: tile.colorA,
+                                progress: progress,
+                                elapsed: elapsed,
+                                vortex: vortexAngle,
+                                width: w,
+                                height: fillH,
+                                seedOffset: 0,
+                                originX: 0.2,
+                                blurRadius: w * 0.12
+                            )
 
-                        // Color B — fractures and crosses into A's territory
-                        fluidLayer(
-                            color: tile.colorB,
-                            progress: progress,
-                            elapsed: elapsed,
-                            vortex: vortexAngle,
-                            width: w,
-                            height: fillH,
-                            seedOffset: 300,
-                            originX: 0.8,
-                            blurRadius: w * 0.15
-                        )
+                            // Color B — fractures and crosses into A's territory
+                            fluidLayer(
+                                color: tile.colorB,
+                                progress: progress,
+                                elapsed: elapsed,
+                                vortex: vortexAngle,
+                                width: w,
+                                height: fillH,
+                                seedOffset: 300,
+                                originX: 0.8,
+                                blurRadius: w * 0.12
+                            )
 
-                        // Bubbles
-                        if progress < 0.92 {
-                            bubbleLayer(elapsed: elapsed, width: w, height: fillH)
-                                .opacity((1.0 - settle) * 0.8)
+                            // Bubbles — skip late in animation
+                            if progress < 0.85 {
+                                bubbleLayer(elapsed: elapsed, width: w, height: fillH)
+                                    .opacity((1.0 - settle) * 0.8)
+                            }
+
+                            // Caustic light — skip late in animation
+                            if fillLevel > 0.5 && progress < 0.85 {
+                                causticLayer(elapsed: elapsed, width: w, height: fillH)
+                                    .opacity(0.12 * (1.0 - settle))
+                            }
+
+                            // Result color fills in — ultra-gradual, never jolts
+                            Rectangle()
+                                .fill(tile.resultColor)
+                                .opacity(settle)
                         }
-
-                        // Caustic light ripples on the fluid surface
-                        if fillLevel > 0.5 && progress < 0.95 {
-                            causticLayer(elapsed: elapsed, width: w, height: fillH)
-                                .opacity(0.12 * (1.0 - settle))
-                        }
-
-                        // Result color fills in — ultra-gradual, never jolts
-                        Rectangle()
-                            .fill(tile.resultColor)
-                            .opacity(settle)
+                        .frame(height: fillH)
                     }
-                    .frame(height: fillH)
                 }
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
             }
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
 
-            // Inner shadow at edges — gives depth to the glass
+            // Inner shadow at edges — gives depth to the glass (no blur)
             RoundedRectangle(cornerRadius: cornerRadius)
                 .strokeBorder(
-                    .black.opacity(0.06 * fillLevel),
-                    lineWidth: 3
+                    .black.opacity(0.04 * fillLevel),
+                    lineWidth: 2
                 )
-                .blur(radius: 2)
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
 
-            // Settled shimmer
+            // Settled shimmer — only when done
             if progress >= 1.0 {
                 settledShimmer(elapsed: elapsed)
             }
@@ -232,11 +242,6 @@ struct MixingTileView: View {
     }
 
     // MARK: - Fluid Layer (fracture + dissolve + merge)
-    //
-    // Starts as 2 parent blobs → fractures into up to 12 fragments.
-    // Fragments cross past center into the other color's territory.
-    // A slow vortex swirls everything. Tendrils stretch between
-    // separating blobs. Color gradually becomes the result.
 
     private func fluidLayer(
         color: Color,
@@ -249,21 +254,17 @@ struct MixingTileView: View {
         originX: CGFloat,
         blurRadius: CGFloat
     ) -> some View {
-        // Fragment count ramps: 2 → 12 over the duration
-        let maxFragments = 12
+        // Reduce fragment count — 8 max instead of 12
+        let maxFragments = 8
         let fragmentCount = 2 + Int(min(progress * 1.5, 1.0) * Double(maxFragments - 2))
 
-        // How far past center fragments can travel (goes beyond 0.5!)
-        let driftStrength = progress * progress  // accelerates
+        let driftStrength = progress * progress
         let centerDrift = driftStrength * (0.5 - originX)
-        let overshoot = max(0, progress - 0.3) * 0.4 * (0.5 - originX).sign  // cross past center
+        let overshoot = max(0, progress - 0.3) * 0.4 * (0.5 - originX).sign
 
-        // Color dissolve: gradual shift original → result
         let colorT = settleEase(progress)
 
         return Canvas { context, canvasSize in
-            // Interpolate threshold color from original toward result
-            // At low colorT → original color. At high colorT → result.
             let threshColor = colorT < 0.4 ? color : tile.resultColor
             context.addFilter(.alphaThreshold(min: 0.28, color: threshColor))
             context.addFilter(.blur(radius: blurRadius))
@@ -282,16 +283,12 @@ struct MixingTileView: View {
 
                     let isParent = i < 2
 
-                    // ── Size ──
                     let baseSize: Double
                     if isParent {
-                        // Parents shrink as they shed fragments
                         baseSize = 0.42 - progress * 0.22
                     } else {
-                        // Fragments fade in based on when they "spawn"
                         let spawnProgress = Double(i - 2) / Double(maxFragments - 2)
                         let age = max(0, progress - spawnProgress * 0.5)
-                        // Small at birth, grows, then shrinks as it dissolves
                         let growPhase = min(age / 0.3, 1.0)
                         let dissolvePhase = max(0, (progress - 0.7) / 0.3)
                         baseSize = (0.1 + r0 * 0.12) * growPhase * (1.0 - dissolvePhase * 0.5)
@@ -300,9 +297,6 @@ struct MixingTileView: View {
                     let pulse = 0.05 * sin(elapsed * (0.25 + r1 * 0.35) + r2 * 6.28)
                     let blobDiameter = width * max(0.04, baseSize + pulse)
 
-                    // ── Position with vortex ──
-                    // Each fragment has a "home" position that drifts toward
-                    // (and past) center. The vortex rotates it around center.
                     let homeX: Double
                     let homeY: Double
 
@@ -310,14 +304,12 @@ struct MixingTileView: View {
                         homeX = originX + centerDrift * 0.6
                         homeY = i == 0 ? 0.33 : 0.67
                     } else {
-                        // Fragments spread across the tile, crossing center
                         let spreadX = originX + centerDrift + overshoot * (0.3 + r3 * 0.7)
                         homeX = max(0.05, min(0.95, spreadX + (r4 - 0.5) * 0.3 * progress))
                         homeY = 0.08 + r7 * 0.84
                     }
 
-                    // Vortex rotation around center
-                    let vortexStrength = progress * 0.15  // how much rotation affects position
+                    let vortexStrength = progress * 0.15
                     let dx = homeX - 0.5
                     let dy = homeY - 0.5
                     let dist = sqrt(dx * dx + dy * dy)
@@ -325,7 +317,6 @@ struct MixingTileView: View {
                     let vortexX = 0.5 + dist * cos(angle)
                     let vortexY = 0.5 + dist * sin(angle)
 
-                    // Organic wobble on top
                     let freqX = 0.2 + r3 * 0.4
                     let freqY = 0.15 + r4 * 0.35
                     let phase = r5 * 6.28
@@ -336,9 +327,7 @@ struct MixingTileView: View {
                     let finalX = (vortexX + wobbleX) * width
                     let finalY = (vortexY + wobbleY) * height
 
-                    // ── Organic stretch (tendrils when separating) ──
-                    // More stretch = more elongated = tendril-like
-                    let stretchBase = 1.0 + progress * 0.15  // everything gets a bit more organic
+                    let stretchBase = 1.0 + progress * 0.15
                     let stretchX = stretchBase + 0.25 * sin(elapsed * (0.18 + r2 * 0.15) + phase)
                     let stretchY = stretchBase + 0.2 * cos(elapsed * (0.22 + r4 * 0.12) + phase * 0.7)
 
@@ -350,13 +339,11 @@ struct MixingTileView: View {
                     )
                     ctx.fill(Path(ellipseIn: rect), with: .color(.white))
 
-                    // ── Tendril: small bridge blob between this and a neighbor ──
-                    // Creates the "stretching" look when blobs pull apart
-                    if i > 0 && i < fragmentCount - 1 && !isParent {
+                    // Tendrils (skip some for perf — only odd indices)
+                    if i > 0 && !isParent && i % 2 == 1 {
                         let neighborSeed = seedOffset + (i - 1) * 11
                         let nr7 = rand(neighborSeed + 8)
                         let neighborY = 0.08 + nr7 * 0.84
-                        // Tendril midpoint between this blob and its neighbor
                         let tendrilX = finalX + wobbleX * width * 0.3
                         let tendrilY = (finalY + neighborY * height) / 2
                         let tendrilSize = blobDiameter * 0.35
@@ -364,24 +351,22 @@ struct MixingTileView: View {
                             x: tendrilX - tendrilSize / 2,
                             y: tendrilY - tendrilSize / 2,
                             width: tendrilSize,
-                            height: tendrilSize * 1.8  // tall and thin
+                            height: tendrilSize * 1.8
                         )
                         ctx.fill(Path(ellipseIn: tRect), with: .color(.white))
                     }
                 }
             }
         }
-        // Blobs stay visible almost to the end — only fully gone when settle ≈ 1
         .opacity(max(0, 1.0 - colorT * 1.1))
         .allowsHitTesting(false)
     }
 
     // MARK: - Caustic Light
 
-    /// Simulates light refracting through liquid — dancing bright spots
     private func causticLayer(elapsed: Double, width: CGFloat, height: CGFloat) -> some View {
         Canvas { context, _ in
-            for i in 0..<4 {
+            for i in 0..<3 {
                 let r0 = rand(600 + i * 4)
                 let r1 = rand(601 + i * 4)
                 let r2 = rand(602 + i * 4)
@@ -396,7 +381,7 @@ struct MixingTileView: View {
                 context.fill(Path(ellipseIn: rect), with: .color(.white.opacity(opacity)))
             }
         }
-        .blur(radius: 4)
+        // Removed blur(radius: 4) — caustics are already soft from Canvas drawing
         .allowsHitTesting(false)
     }
 
@@ -404,12 +389,12 @@ struct MixingTileView: View {
 
     private func bubbleLayer(elapsed: Double, width: CGFloat, height: CGFloat) -> some View {
         Canvas { context, _ in
-            for i in 0..<8 {
+            for i in 0..<5 {
                 let r0 = rand(400 + i * 3)
                 let r1 = rand(401 + i * 3)
                 let r2 = rand(402 + i * 3)
 
-                let period = 3.0 + r0 * 3.0  // 3–6s per rise
+                let period = 3.0 + r0 * 3.0
                 let phase = r1 * period
                 let t = ((elapsed + phase).truncatingRemainder(dividingBy: period)) / period
 
@@ -443,13 +428,9 @@ struct MixingTileView: View {
 
     // MARK: - Settle Curve
 
-    /// Ultra-slow power curve. Barely perceptible for the first half,
-    /// then gently accelerates. By 80% through, colors are nearly
-    /// indistinguishable. By 100% it's perfectly uniform.
     private func settleEase(_ progress: Double) -> Double {
         guard progress > 0.03 else { return 0 }
         let t = (progress - 0.03) / 0.97
-        // x⁴ — even slower start than cubic, smoother dissolve
         return t * t * t * t
     }
 }

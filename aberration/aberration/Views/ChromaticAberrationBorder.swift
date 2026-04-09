@@ -2,8 +2,11 @@ import SwiftUI
 
 /// A border effect that mimics chromatic aberration — the RGB channel
 /// splitting you see at the edges of a lens. Three colored strokes
-/// (red, green, blue) are each slightly offset and blurred, creating
+/// (red, green, blue) are each slightly offset, creating
 /// that prismatic rainbow fringe around the container.
+///
+/// Performance: no blur or shadow — just offset colored strokes with
+/// opacity. Visually similar but dramatically cheaper.
 ///
 /// `phase` (0...1) rotates the offset direction over time.
 /// `intensity` (0...1) controls overall visibility — 0 hides the effect.
@@ -14,37 +17,36 @@ struct ChromaticAberrationBorder: View {
 
     // How far each color channel offsets from center (in points)
     private let maxOffset: CGFloat = 3.0
-    private let strokeWidth: CGFloat = 2.0
-    private let blurRadius: CGFloat = 4.0
-    private let glowRadius: CGFloat = 10.0
+    private let strokeWidth: CGFloat = 2.5
 
     var body: some View {
-        ZStack {
-            // Red channel — offset at phase angle 0°
-            channelStroke(
-                color: Color(red: 1.0, green: 0.15, blue: 0.2),
-                angleOffset: 0
-            )
+        if intensity > 0 {
+            ZStack {
+                // Red channel — offset at phase angle 0°
+                channelStroke(
+                    color: Color(red: 1.0, green: 0.15, blue: 0.2),
+                    angleOffset: 0
+                )
 
-            // Green channel — offset at phase angle 120°
-            channelStroke(
-                color: Color(red: 0.2, green: 1.0, blue: 0.3),
-                angleOffset: 2 * .pi / 3
-            )
+                // Green channel — offset at phase angle 120°
+                channelStroke(
+                    color: Color(red: 0.2, green: 1.0, blue: 0.3),
+                    angleOffset: 2 * .pi / 3
+                )
 
-            // Blue channel — offset at phase angle 240°
-            channelStroke(
-                color: Color(red: 0.2, green: 0.3, blue: 1.0),
-                angleOffset: 4 * .pi / 3
-            )
+                // Blue channel — offset at phase angle 240°
+                channelStroke(
+                    color: Color(red: 0.2, green: 0.3, blue: 1.0),
+                    angleOffset: 4 * .pi / 3
+                )
 
-            // White core stroke for sharp edge definition
-            RoundedRectangle(cornerRadius: cornerRadius)
-                .strokeBorder(.white.opacity(0.3 * intensity), lineWidth: 0.5)
+                // White core stroke for sharp edge definition
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .strokeBorder(.white.opacity(0.3 * intensity), lineWidth: 0.5)
+            }
+            .compositingGroup()
+            .blendMode(.plusLighter)
         }
-        .compositingGroup()
-        .blendMode(.plusLighter)
-        .opacity(intensity > 0 ? 1 : 0)
     }
 
     private func channelStroke(color: Color, angleOffset: Double) -> some View {
@@ -53,9 +55,7 @@ struct ChromaticAberrationBorder: View {
         let dy = sin(angle) * maxOffset * intensity
 
         return RoundedRectangle(cornerRadius: cornerRadius)
-            .strokeBorder(color.opacity(0.7 * intensity), lineWidth: strokeWidth)
-            .blur(radius: blurRadius * intensity)
-            .shadow(color: color.opacity(0.4 * intensity), radius: glowRadius * intensity)
+            .strokeBorder(color.opacity(0.6 * intensity), lineWidth: strokeWidth)
             .offset(x: dx, y: dy)
     }
 }
